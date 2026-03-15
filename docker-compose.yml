@@ -1,0 +1,52 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8000"
+    env_file:
+      - .env
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: tiktok_label
+      DB_USERNAME: tiktok
+      DB_PASSWORD: secret123
+    volumes:
+      - ./public/uploads:/var/www/app/public/uploads
+      - ./public/labels:/var/www/app/public/labels
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: tiktok_label
+      MYSQL_USER: tiktok
+      MYSQL_PASSWORD: secret123
+      MYSQL_ROOT_PASSWORD: root123
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "tiktok", "-psecret123"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+    restart: unless-stopped
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    ports:
+      - "8081:80"
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      MYSQL_ROOT_PASSWORD: root123
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
