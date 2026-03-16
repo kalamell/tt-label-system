@@ -3,15 +3,21 @@ services:
     build: .
     ports:
       - "8080:8000"
-    env_file:
-      - .env
     environment:
+      APP_NAME: "TikTok Label System"
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_URL: http://localhost:8080
       DB_CONNECTION: mysql
       DB_HOST: db
       DB_PORT: 3306
       DB_DATABASE: tiktok_label
       DB_USERNAME: tiktok
       DB_PASSWORD: secret123
+      SESSION_DRIVER: file
+      CACHE_STORE: file
+      QUEUE_CONNECTION: sync
+      FILESYSTEM_DISK: local
     volumes:
       - ./public/uploads:/var/www/app/public/uploads
       - ./public/labels:/var/www/app/public/labels
