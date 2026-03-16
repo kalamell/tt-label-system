@@ -69,6 +69,11 @@ class PdfParserService
                         // address: PyMuPDF decode Thai font ได้ถูกต้องกว่า smalot
                         if (!empty($pyInfo['recipient_address'])) {
                             $parsed['recipient_address'] = $pyInfo['recipient_address'];
+                            // แยก district/province/zipcode จาก address string
+                            [$d, $p, $z] = $this->extractAddressComponents($pyInfo['recipient_address']);
+                            if ($d) $parsed['recipient_district']  = $d;
+                            if ($p) $parsed['recipient_province']  = $p;
+                            if ($z) $parsed['recipient_zipcode']   = $z;
                         }
                     }
 
@@ -384,6 +389,37 @@ class PdfParserService
         }
 
         return $data;
+    }
+
+    /**
+     * แยก district / province / zipcode จาก recipient_address
+     * Format ที่ TikTok ใช้: "[ที่อยู่] , [อำเภอ] , [จังหวัด] [zipcode]"
+     * @return array [district, province, zipcode]
+     */
+    protected function extractAddressComponents(string $address): array
+    {
+        $parts = array_map('trim', explode(',', $address));
+        $count = count($parts);
+        if ($count < 2) return [null, null, null];
+
+        // ส่วนท้ายสุด: "จังหวัด 5หลัก"
+        $last = $parts[$count - 1];
+        if (!preg_match('/^([\p{Thai}\s]+?)\s+(\d{5})\s*$/u', $last, $m)) {
+            return [null, null, null];
+        }
+        $province = trim($m[1]);
+        $zipcode  = $m[2];
+
+        // ส่วนก่อนท้ายสุด: "อำเภอ" — รับเฉพาะ Thai text ล้วน ความยาวไม่เกิน 40 ตัว
+        $district = null;
+        if ($count >= 3) {
+            $prev = $parts[$count - 2];
+            if (mb_strlen($prev) <= 40 && preg_match('/^[\p{Thai}\s]+$/u', $prev)) {
+                $district = $prev;
+            }
+        }
+
+        return [$district, $province, $zipcode];
     }
 
     /**
