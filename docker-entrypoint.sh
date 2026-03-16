@@ -1,21 +1,29 @@
 #!/bin/sh
 set -e
 
-# สร้าง .env ใน container จาก .env.example
-if [ ! -f .env ]; then
-    cp .env.example .env
-fi
+# เขียน .env ใหม่ทั้งไฟล์จาก Docker env vars โดยตรง
+# ไม่ใช้ sed เพราะ .env.example อาจมี Windows line endings
+cat > .env << EOF
+APP_NAME="TikTok Label System"
+APP_ENV=production
+APP_KEY=
+APP_DEBUG=false
+APP_URL=${APP_URL:-http://localhost:8080}
 
-# เขียน env vars จาก Docker ลงไฟล์ .env
-# เพราะ Laravel อ่านไฟล์นี้บน disk เป็นหลัก
-sed -i "s|^DB_CONNECTION=.*|DB_CONNECTION=${DB_CONNECTION:-mysql}|" .env
-sed -i "s|^DB_HOST=.*|DB_HOST=${DB_HOST:-db}|" .env
-sed -i "s|^DB_PORT=.*|DB_PORT=${DB_PORT:-3306}|" .env
-sed -i "s|^DB_DATABASE=.*|DB_DATABASE=${DB_DATABASE:-tiktok_label}|" .env
-sed -i "s|^DB_USERNAME=.*|DB_USERNAME=${DB_USERNAME:-tiktok}|" .env
-sed -i "s|^DB_PASSWORD=.*|DB_PASSWORD=${DB_PASSWORD:-}|" .env
-sed -i "s|^SESSION_DRIVER=.*|SESSION_DRIVER=${SESSION_DRIVER:-file}|" .env
-sed -i "s|^CACHE_STORE=.*|CACHE_STORE=${CACHE_STORE:-file}|" .env
+DB_CONNECTION=${DB_CONNECTION:-mysql}
+DB_HOST=${DB_HOST:-db}
+DB_PORT=${DB_PORT:-3306}
+DB_DATABASE=${DB_DATABASE:-tiktok_label}
+DB_USERNAME=${DB_USERNAME:-tiktok}
+DB_PASSWORD=${DB_PASSWORD:-secret123}
+
+SESSION_DRIVER=file
+CACHE_STORE=file
+QUEUE_CONNECTION=sync
+FILESYSTEM_DISK=local
+LOG_CHANNEL=stack
+LOG_LEVEL=debug
+EOF
 
 # Generate APP_KEY และ export เข้า shell environment
 php artisan key:generate --force
