@@ -6,13 +6,11 @@ if [ ! -f .env ]; then
     cp .env.example .env
 fi
 
-# Generate APP_KEY ถ้ายังไม่มี (เขียนลง .env)
-if [ -z "$APP_KEY" ]; then
-    php artisan key:generate --force
-fi
-
-# Clear config cache เพื่อให้รับค่า env ใหม่
-php artisan config:clear
+# Generate APP_KEY เสมอ แล้ว export ค่าใหม่เข้า shell environment
+# (Docker inject APP_KEY= ว่างจาก env_file ทับ ต้อง override กลับ)
+php artisan key:generate --force
+APP_KEY=$(grep '^APP_KEY=' .env | cut -d'=' -f2-)
+export APP_KEY
 
 # Migrate database
 php artisan migrate --force
