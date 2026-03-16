@@ -23,9 +23,11 @@ RUN composer install --no-dev --optimize-autoloader --no-scripts
 
 COPY . .
 
-RUN php artisan key:generate --no-interaction \
-    && mkdir -p public/uploads/originals public/uploads/temp public/labels \
+RUN mkdir -p public/uploads/originals public/uploads/temp public/labels \
     && chmod -R 755 storage bootstrap/cache public/uploads public/labels
 
+COPY docker-entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 EXPOSE 8000
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
