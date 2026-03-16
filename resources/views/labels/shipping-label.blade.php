@@ -11,6 +11,7 @@
 <head>
     <meta charset="UTF-8">
     <style>
+        @if(file_exists(public_path('fonts/thai-regular.ttf')))
         @font-face {
             font-family: 'ThaiFont';
             src: url('{{ public_path("fonts/thai-regular.ttf") }}') format('truetype');
@@ -21,6 +22,7 @@
             src: url('{{ public_path("fonts/thai-bold.ttf") }}') format('truetype');
             font-weight: bold;
         }
+        @endif
         * { box-sizing: border-box; }
         @page { margin: 0; padding: 0; size: 105.13mm 148.17mm; }
         html, body { margin: 0; padding: 0; width: 105.13mm; height: 148.17mm; }
