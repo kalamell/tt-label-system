@@ -25,6 +25,15 @@ LOG_CHANNEL=stack
 LOG_LEVEL=debug
 EOF
 
+# Copy Thai fonts ถ้ายังไม่มีใน public/fonts (fallback กรณี volume mount ทับ)
+if [ ! -f public/fonts/thai-regular.ttf ]; then
+    mkdir -p public/fonts
+    [ -f /usr/share/fonts/truetype/tlwg/TlwgTypo.ttf ] && \
+        cp /usr/share/fonts/truetype/tlwg/TlwgTypo.ttf public/fonts/thai-regular.ttf
+    [ -f /usr/share/fonts/truetype/tlwg/TlwgTypo-Bold.ttf ] && \
+        cp /usr/share/fonts/truetype/tlwg/TlwgTypo-Bold.ttf public/fonts/thai-bold.ttf
+fi
+
 # Generate APP_KEY และ export เข้า shell environment
 php artisan key:generate --force
 APP_KEY=$(grep '^APP_KEY=' .env | cut -d'=' -f2-)

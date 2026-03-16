@@ -11,11 +11,21 @@
 <head>
     <meta charset="UTF-8">
     <style>
+        @font-face {
+            font-family: 'ThaiFont';
+            src: url('{{ public_path("fonts/thai-regular.ttf") }}') format('truetype');
+            font-weight: normal;
+        }
+        @font-face {
+            font-family: 'ThaiFont';
+            src: url('{{ public_path("fonts/thai-bold.ttf") }}') format('truetype');
+            font-weight: bold;
+        }
         * { box-sizing: border-box; }
         @page { margin: 0; padding: 0; size: 105.13mm 148.17mm; }
         html, body { margin: 0; padding: 0; width: 105.13mm; height: 148.17mm; }
         body {
-            font-family: Arial, Helvetica, sans-serif;
+            font-family: 'ThaiFont', Arial, sans-serif;
             font-size: 9pt;
             background: #fff;
         }
