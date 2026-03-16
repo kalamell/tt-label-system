@@ -238,6 +238,8 @@
     function printSelected(btn) {
         setBtnLoading(btn, 'กำลังสร้าง PDF...');
         document.getElementById('batch-form').submit();
+        // download ไม่ navigate — คืนสถานะหลัง 5 วินาที
+        setTimeout(() => resetBtn(btn, null, 'พิมพ์ PDF รวม'), 5000);
     }
 
     function downloadZip(btn) {
@@ -281,6 +283,12 @@
         link.querySelector('.print-spin').classList.remove('hidden');
         link.querySelector('.print-label').textContent = '...';
         link.classList.add('pointer-events-none', 'opacity-60');
+        // download ไม่ navigate — คืนสถานะหลัง 5 วินาที
+        setTimeout(() => {
+            link.querySelector('.print-spin').classList.add('hidden');
+            link.querySelector('.print-label').textContent = 'พิมพ์';
+            link.classList.remove('pointer-events-none', 'opacity-60');
+        }, 5000);
     }
 </script>
 @endpush

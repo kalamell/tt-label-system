@@ -7,8 +7,11 @@ RUN apt-get update && apt-get install -y \
     libonig-dev libxml2-dev libzip-dev \
     python3 python3-pip \
     fonts-thai-tlwg \
+    libmagickwand-dev ghostscript \
     && docker-php-ext-configure gd --with-jpeg --with-freetype \
     && docker-php-ext-install pdo pdo_mysql mbstring zip gd opcache dom xml fileinfo \
+    && pecl install imagick \
+    && docker-php-ext-enable imagick \
     && pip3 install pymupdf --break-system-packages \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -25,9 +28,10 @@ RUN composer install --no-dev --optimize-autoloader --no-scripts
 COPY . .
 
 RUN mkdir -p public/uploads/originals public/uploads/temp public/labels public/fonts \
+    storage/fonts storage/framework/sessions storage/framework/views storage/framework/cache \
     && cp /usr/share/fonts/truetype/tlwg/TlwgTypo.ttf public/fonts/thai-regular.ttf \
     && cp /usr/share/fonts/truetype/tlwg/TlwgTypo-Bold.ttf public/fonts/thai-bold.ttf \
-    && chmod -R 755 storage bootstrap/cache public/uploads public/labels public/fonts
+    && chmod -R 777 storage bootstrap/cache public/uploads public/labels public/fonts
 
 COPY docker-entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh

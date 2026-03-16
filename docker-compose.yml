@@ -34,7 +34,7 @@ services:
       MYSQL_PASSWORD: secret123
       MYSQL_ROOT_PASSWORD: root123
     volumes:
-      - mysql_data:/var/lib/mysql
+      - ./docker/mysql:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "tiktok", "-psecret123"]
       interval: 5s
@@ -55,5 +55,3 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-volumes:
-  mysql_data:

@@ -1,0 +1,3 @@
+# ไม่ commit ข้อมูล MySQL — เก็บแค่ folder structure
+mysql/*
+!mysql/.gitkeep
