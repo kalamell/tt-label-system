@@ -13,6 +13,12 @@ if ! docker info &> /dev/null; then
     exit 1
 fi
 
+# สร้าง .env บน host ถ้ายังไม่มี
+if [ ! -f .env ]; then
+    echo "[*] สร้างไฟล์ .env..."
+    cp .env.example .env
+fi
+
 echo "[*] หยุดและลบ containers + images เก่า..."
 docker compose down --rmi all
 
@@ -22,8 +28,7 @@ docker compose up -d --build
 echo "[*] รอฐานข้อมูลเริ่มต้น..."
 sleep 15
 
-echo "[*] ตั้งค่าแอปพลิเคชัน..."
-docker compose exec app php artisan migrate --force
+echo "[*] Seed ข้อมูลเริ่มต้น..."
 docker compose exec app php artisan db:seed --class=ProductSeeder --force 2>/dev/null || true
 
 echo ""

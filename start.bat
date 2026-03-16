@@ -44,10 +44,8 @@ REM 5. รอ DB พร้อม
 echo [*] รอฐานข้อมูลเริ่มต้น...
 timeout /t 15 /nobreak >nul
 
-REM 6. Setup ครั้งแรก
-echo [*] ตั้งค่าแอปพลิเคชัน...
-docker compose exec app php artisan key:generate --force
-docker compose exec app php artisan migrate --force
+REM 6. Seed ข้อมูลเริ่มต้น (migrate รันใน entrypoint อัตโนมัติ)
+echo [*] Seed ข้อมูลเริ่มต้น...
 docker compose exec app php artisan db:seed --class=ProductSeeder --force
 
 echo.

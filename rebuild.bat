@@ -14,6 +14,12 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b 1
 )
 
+REM สร้าง .env บน host ถ้ายังไม่มี
+if not exist ".env" (
+    echo [*] สร้างไฟล์ .env...
+    copy .env.example .env >nul
+)
+
 echo [*] หยุดและลบ containers + images เก่า...
 docker compose down --rmi all
 
@@ -23,8 +29,7 @@ docker compose up -d --build
 echo [*] รอฐานข้อมูลเริ่มต้น...
 timeout /t 15 /nobreak >nul
 
-echo [*] ตั้งค่าแอปพลิเคชัน...
-docker compose exec app php artisan migrate --force
+echo [*] Seed ข้อมูลเริ่มต้น...
 docker compose exec app php artisan db:seed --class=ProductSeeder --force
 
 echo.

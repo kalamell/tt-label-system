@@ -41,12 +41,10 @@ docker compose up -d --build
 
 # 5. รอ DB พร้อม
 echo "[*] รอฐานข้อมูลเริ่มต้น..."
-sleep 10
+sleep 15
 
-# 6. Setup ครั้งแรก (generate key, migrate, seed)
-echo "[*] ตั้งค่าแอปพลิเคชัน..."
-docker compose exec app php artisan key:generate --force 2>/dev/null || true
-docker compose exec app php artisan migrate --force
+# 6. Seed ข้อมูลเริ่มต้น (migrate รันใน entrypoint อัตโนมัติ)
+echo "[*] Seed ข้อมูลเริ่มต้น..."
 docker compose exec app php artisan db:seed --class=ProductSeeder --force 2>/dev/null || true
 
 echo ""
