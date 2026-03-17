@@ -42,8 +42,13 @@
             <div class="label">
                 <div class="header">
                     <span style="font-weight:bold">TikTok Shop</span>
-                    <span>J&T Express</span>
-                    <span style="font-size:16px; font-weight:bold">EZ</span>
+                    @if($order->carrier === 'FLASH')
+                        <span>Flash Express</span>
+                        <span style="font-size:16px; font-weight:bold">{{ $order->service_type ?? 'NDD' }}</span>
+                    @else
+                        <span>J&amp;T Express</span>
+                        <span style="font-size:16px; font-weight:bold">{{ $order->service_type ?? 'EZ' }}</span>
+                    @endif
                 </div>
 
                 <div class="barcode-section">

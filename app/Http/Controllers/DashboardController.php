@@ -24,10 +24,18 @@ class DashboardController extends Controller
         $todayPrepaid   = (clone $todayQ)->where('payment_type', 'PREPAID')->count();
         $pendingOrders  = Order::pending()->count();
         $printedToday   = (clone $todayQ)->where('label_printed', true)->count();
+        $todayJt        = (clone $todayQ)->where('carrier', 'JT')->count();
+        $todayFlash     = (clone $todayQ)->where('carrier', 'FLASH')->count();
 
         // ── Trend 7 วัน ───────────────────────────────────────────
         $since = now()->subDays(6)->toDateString();
-        $trendRaw = Order::selectRaw('COALESCE(DATE(shipping_date), DATE(created_at)) AS date, COUNT(*) AS orders, SUM(quantity) AS boxes')
+        $trendRaw = Order::selectRaw('
+                COALESCE(DATE(shipping_date), DATE(created_at)) AS date,
+                COUNT(*) AS orders,
+                SUM(quantity) AS boxes,
+                SUM(carrier = "JT") AS jt_count,
+                SUM(carrier = "FLASH") AS flash_count
+            ')
             ->whereRaw('COALESCE(DATE(shipping_date), DATE(created_at)) >= ?', [$since])
             ->where('status', '!=', 'cancelled')
             ->groupByRaw('COALESCE(DATE(shipping_date), DATE(created_at))')
@@ -38,10 +46,12 @@ class DashboardController extends Controller
         for ($i = 6; $i >= 0; $i--) {
             $d = now()->subDays($i)->toDateString();
             $trend->push([
-                'date'   => $d,
-                'label'  => Carbon::parse($d)->format('d/m'),
-                'orders' => $trendRaw[$d]->orders ?? 0,
-                'boxes'  => $trendRaw[$d]->boxes  ?? 0,
+                'date'        => $d,
+                'label'       => Carbon::parse($d)->format('d/m'),
+                'orders'      => $trendRaw[$d]->orders      ?? 0,
+                'boxes'       => $trendRaw[$d]->boxes        ?? 0,
+                'jt_count'    => $trendRaw[$d]->jt_count    ?? 0,
+                'flash_count' => $trendRaw[$d]->flash_count ?? 0,
             ]);
         }
 
@@ -79,7 +89,7 @@ class DashboardController extends Controller
 
         return view('dashboard.index', compact(
             'todayOrders', 'todayBoxes', 'todayCod', 'todayPrepaid',
-            'pendingOrders', 'printedToday',
+            'pendingOrders', 'printedToday', 'todayJt', 'todayFlash',
             'trend', 'todayProducts', 'todayProvinces',
             'products', 'recentOrders', 'expiringLots'
         ));

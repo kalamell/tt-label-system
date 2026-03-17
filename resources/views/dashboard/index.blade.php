@@ -26,8 +26,8 @@
         </div>
     @endif
 
-    {{-- 6 Stat Cards --}}
-    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+    {{-- Stat Cards แถว 1: ภาพรวม --}}
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-3">
         <div class="bg-white rounded-xl border border-gray-200 p-4">
             <p class="text-xs text-gray-400 mb-1">ออเดอร์วันนี้</p>
             <p class="text-2xl font-bold text-gray-900">{{ number_format($todayOrders) }}</p>
@@ -57,6 +57,37 @@
             <p class="text-xs text-gray-400 mb-1">โอนแล้ว</p>
             <p class="text-2xl font-bold text-blue-600">{{ number_format($todayPrepaid) }}</p>
             <p class="text-xs text-gray-400 mt-0.5">ออเดอร์</p>
+        </div>
+    </div>
+
+    {{-- Stat Cards แถว 2: แยกขนส่ง --}}
+    @php $carrierTotal = $todayJt + $todayFlash; @endphp
+    <div class="grid grid-cols-2 gap-4 mb-6">
+        <div class="bg-blue-50 rounded-xl border border-blue-200 p-4 flex items-center gap-4">
+            <div class="flex-1">
+                <p class="text-xs text-blue-500 mb-1 font-medium">J&amp;T Express วันนี้</p>
+                <p class="text-3xl font-bold text-blue-700">{{ number_format($todayJt) }}</p>
+                <p class="text-xs text-blue-400 mt-0.5">ออเดอร์</p>
+            </div>
+            @if($carrierTotal > 0)
+            <div class="text-right flex-shrink-0">
+                <p class="text-2xl font-bold text-blue-600">{{ round($todayJt / $carrierTotal * 100) }}<span class="text-base font-normal">%</span></p>
+                <p class="text-xs text-blue-400">ของขนส่งวันนี้</p>
+            </div>
+            @endif
+        </div>
+        <div class="bg-orange-50 rounded-xl border border-orange-200 p-4 flex items-center gap-4">
+            <div class="flex-1">
+                <p class="text-xs text-orange-500 mb-1 font-medium">Flash Express วันนี้</p>
+                <p class="text-3xl font-bold text-orange-600">{{ number_format($todayFlash) }}</p>
+                <p class="text-xs text-orange-400 mt-0.5">ออเดอร์</p>
+            </div>
+            @if($carrierTotal > 0)
+            <div class="text-right flex-shrink-0">
+                <p class="text-2xl font-bold text-orange-500">{{ round($todayFlash / $carrierTotal * 100) }}<span class="text-base font-normal">%</span></p>
+                <p class="text-xs text-orange-400">ของขนส่งวันนี้</p>
+            </div>
+            @endif
         </div>
     </div>
 
@@ -247,10 +278,19 @@ new Chart(ctx, {
         labels: trendData.map(d => d.label),
         datasets: [
             {
-                label: 'ออเดอร์',
-                data: trendData.map(d => d.orders),
-                backgroundColor: 'rgba(59,130,246,0.7)',
-                borderRadius: 4,
+                label: 'J&T',
+                data: trendData.map(d => d.jt_count),
+                backgroundColor: 'rgba(59,130,246,0.75)',
+                borderRadius: 3,
+                stack: 'orders',
+                yAxisID: 'y',
+            },
+            {
+                label: 'Flash',
+                data: trendData.map(d => d.flash_count),
+                backgroundColor: 'rgba(249,115,22,0.75)',
+                borderRadius: 3,
+                stack: 'orders',
                 yAxisID: 'y',
             },
             {
@@ -272,7 +312,7 @@ new Chart(ctx, {
         interaction: { mode: 'index', intersect: false },
         plugins: { legend: { position: 'top', labels: { font: { size: 11 } } } },
         scales: {
-            y:  { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 } }, grid: { color: '#f3f4f6' }, title: { display: true, text: 'ออเดอร์', font: { size: 11 } } },
+            y:  { beginAtZero: true, stacked: true, ticks: { stepSize: 1, font: { size: 11 } }, grid: { color: '#f3f4f6' }, title: { display: true, text: 'ออเดอร์', font: { size: 11 } } },
             y2: { beginAtZero: true, position: 'right', ticks: { font: { size: 11 } }, grid: { drawOnChartArea: false }, title: { display: true, text: 'กล่อง', font: { size: 11 } } },
         }
     }

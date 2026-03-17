@@ -17,6 +17,12 @@
                 <option value="shipped"  {{ request('status') == 'shipped'  ? 'selected' : '' }}>จัดส่งแล้ว</option>
             </select>
 
+            <select name="carrier" class="px-4 py-2 border border-gray-200 rounded-lg text-sm">
+                <option value="">ทุกขนส่ง</option>
+                <option value="JT"    {{ request('carrier') == 'JT'    ? 'selected' : '' }}>J&amp;T Express</option>
+                <option value="FLASH" {{ request('carrier') == 'FLASH' ? 'selected' : '' }}>Flash Express</option>
+            </select>
+
             <input type="date" name="date" value="{{ request('date') }}"
                    class="px-4 py-2 border border-gray-200 rounded-lg text-sm">
 
@@ -94,6 +100,7 @@
                         <th class="px-4 py-3 text-left">
                             <input type="checkbox" id="check-all" class="rounded border-gray-300">
                         </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ขนส่ง</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tracking</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order ID</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ผู้รับ</th>
@@ -111,6 +118,15 @@
                             <td class="px-4 py-3">
                                 <input type="checkbox" name="order_ids[]" value="{{ $order->id }}"
                                        class="order-check rounded border-gray-300">
+                            </td>
+                            <td class="px-4 py-3">
+                                @if($order->carrier === 'FLASH')
+                                    <span class="px-2 py-0.5 bg-orange-100 text-orange-700 rounded text-xs font-medium">Flash</span>
+                                @elseif($order->carrier === 'JT')
+                                    <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium">J&amp;T</span>
+                                @else
+                                    <span class="text-gray-300 text-xs">—</span>
+                                @endif
                             </td>
                             <td class="px-4 py-3 font-mono text-xs font-medium text-blue-600">
                                 <a href="{{ route('orders.show', $order) }}" class="hover:underline">
@@ -175,7 +191,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="10" class="px-4 py-12 text-center text-gray-400">
+                            <td colspan="11" class="px-4 py-12 text-center text-gray-400">
                                 ยังไม่มีออเดอร์ — <a href="{{ route('orders.upload.form') }}" class="text-blue-600 hover:underline">Upload PDF เลย</a>
                             </td>
                         </tr>

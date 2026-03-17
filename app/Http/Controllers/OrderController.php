@@ -31,12 +31,17 @@ class OrderController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('tracking_number', 'like', "%{$search}%")
                     ->orWhere('order_id', 'like', "%{$search}%")
-                    ->orWhere('recipient_name', 'like', "%{$search}%");
+                    ->orWhere('recipient_name', 'like', "%{$search}%")
+                    ->orWhere('carrier', 'like', "%{$search}%");
             });
         }
 
         if ($status = $request->get('status')) {
             $query->where('status', $status);
+        }
+
+        if ($carrier = $request->get('carrier')) {
+            $query->where('carrier', $carrier);
         }
 
         if ($date = $request->get('date')) {
@@ -241,6 +246,8 @@ class OrderController extends Controller
 
                 $order = Order::create([
                     'order_id'           => $parsed['order_id'],
+                    'carrier'            => $parsed['carrier']       ?? null,
+                    'service_type'       => $parsed['service_type']  ?? null,
                     'tracking_number'    => $parsed['tracking_number'],
                     'sorting_code'       => $parsed['sorting_code'],
                     'sorting_code_2'     => $parsed['sorting_code_2'],

@@ -46,8 +46,8 @@
     </form>
 </div>
 
-{{-- Summary Cards --}}
-<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+{{-- Summary Cards แถว 1: ภาพรวม --}}
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
     <div class="bg-white rounded-xl border border-gray-200 p-5">
         <p class="text-sm text-gray-500">ออเดอร์ทั้งหมด</p>
         <p class="text-3xl font-bold text-gray-900 mt-1">{{ number_format($totalOrders) }}</p>
@@ -67,6 +67,37 @@
         <p class="text-sm text-gray-500">PREPAID</p>
         <p class="text-3xl font-bold text-green-600 mt-1">{{ number_format($prepaidCount) }}</p>
         <p class="text-xs text-gray-400 mt-1">รายการ</p>
+    </div>
+</div>
+
+{{-- Summary Cards แถว 2: แยกขนส่ง --}}
+@php $carrierTotal = $jtCount + $flashCount; @endphp
+<div class="grid grid-cols-2 gap-4 mb-6">
+    <div class="bg-blue-50 rounded-xl border border-blue-200 p-5 flex items-center gap-4">
+        <div class="flex-1">
+            <p class="text-sm text-blue-500 font-medium">J&amp;T Express</p>
+            <p class="text-3xl font-bold text-blue-700 mt-1">{{ number_format($jtCount) }}</p>
+            <p class="text-xs text-blue-400 mt-1">ออเดอร์</p>
+        </div>
+        @if($carrierTotal > 0)
+        <div class="text-right flex-shrink-0">
+            <p class="text-2xl font-bold text-blue-600">{{ round($jtCount / $carrierTotal * 100) }}<span class="text-base font-normal">%</span></p>
+            <p class="text-xs text-blue-400">ของขนส่งทั้งหมด</p>
+        </div>
+        @endif
+    </div>
+    <div class="bg-orange-50 rounded-xl border border-orange-200 p-5 flex items-center gap-4">
+        <div class="flex-1">
+            <p class="text-sm text-orange-500 font-medium">Flash Express</p>
+            <p class="text-3xl font-bold text-orange-600 mt-1">{{ number_format($flashCount) }}</p>
+            <p class="text-xs text-orange-400 mt-1">ออเดอร์</p>
+        </div>
+        @if($carrierTotal > 0)
+        <div class="text-right flex-shrink-0">
+            <p class="text-2xl font-bold text-orange-500">{{ round($flashCount / $carrierTotal * 100) }}<span class="text-base font-normal">%</span></p>
+            <p class="text-xs text-orange-400">ของขนส่งทั้งหมด</p>
+        </div>
+        @endif
     </div>
 </div>
 
@@ -94,7 +125,9 @@
                         <th class="pb-2 pr-4 text-right">ออเดอร์</th>
                         <th class="pb-2 pr-4 text-right">กล่อง</th>
                         <th class="pb-2 pr-4 text-right">COD</th>
-                        <th class="pb-2 text-right">PREPAID</th>
+                        <th class="pb-2 pr-4 text-right">PREPAID</th>
+                        <th class="pb-2 pr-4 text-right text-blue-400">J&amp;T</th>
+                        <th class="pb-2 text-right text-orange-400">Flash</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -109,7 +142,9 @@
                         <td class="py-2.5 pr-4 text-right font-semibold">{{ number_format($row->orders) }}</td>
                         <td class="py-2.5 pr-4 text-right text-blue-600 font-semibold">{{ number_format($row->boxes) }}</td>
                         <td class="py-2.5 pr-4 text-right text-orange-500">{{ number_format($row->cod_count) }}</td>
-                        <td class="py-2.5 text-right text-green-600">{{ number_format($row->prepaid_count) }}</td>
+                        <td class="py-2.5 pr-4 text-right text-green-600">{{ number_format($row->prepaid_count) }}</td>
+                        <td class="py-2.5 pr-4 text-right text-blue-600 font-medium">{{ number_format($row->jt_count) }}</td>
+                        <td class="py-2.5 text-right text-orange-500 font-medium">{{ number_format($row->flash_count) }}</td>
                     </tr>
                     @endforeach
                     {{-- รวม --}}
@@ -119,7 +154,9 @@
                         <td class="py-2.5 pr-4 text-right">{{ number_format($dailySummary->sum('orders')) }}</td>
                         <td class="py-2.5 pr-4 text-right text-blue-600">{{ number_format($dailySummary->sum('boxes')) }}</td>
                         <td class="py-2.5 pr-4 text-right text-orange-500">{{ number_format($dailySummary->sum('cod_count')) }}</td>
-                        <td class="py-2.5 text-right text-green-600">{{ number_format($dailySummary->sum('prepaid_count')) }}</td>
+                        <td class="py-2.5 pr-4 text-right text-green-600">{{ number_format($dailySummary->sum('prepaid_count')) }}</td>
+                        <td class="py-2.5 pr-4 text-right text-blue-600">{{ number_format($dailySummary->sum('jt_count')) }}</td>
+                        <td class="py-2.5 text-right text-orange-500">{{ number_format($dailySummary->sum('flash_count')) }}</td>
                     </tr>
                     @endif
                 </tbody>
@@ -212,6 +249,7 @@
                 <thead>
                     <tr class="text-xs text-gray-400 uppercase border-b text-left">
                         <th class="pb-2 pr-3">วันที่</th>
+                        <th class="pb-2 pr-3">ขนส่ง</th>
                         <th class="pb-2 pr-3">Tracking</th>
                         <th class="pb-2 pr-3">ผู้รับ</th>
                         <th class="pb-2 pr-3">จังหวัด</th>
@@ -226,6 +264,15 @@
                     <tr class="border-b border-gray-50 hover:bg-gray-50">
                         <td class="py-2 pr-3 text-xs text-gray-500 whitespace-nowrap">
                             {{ ($order->shipping_date ?? $order->created_at)->format('d/m/Y') }}
+                        </td>
+                        <td class="py-2 pr-3">
+                            @if($order->carrier === 'FLASH')
+                                <span class="px-1.5 py-0.5 bg-orange-50 text-orange-600 rounded text-xs font-medium">Flash</span>
+                            @elseif($order->carrier === 'JT')
+                                <span class="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-xs font-medium">J&amp;T</span>
+                            @else
+                                <span class="text-gray-300 text-xs">—</span>
+                            @endif
                         </td>
                         <td class="py-2 pr-3 font-mono text-xs">
                             <a href="{{ route('orders.show', $order) }}" class="text-blue-600 hover:underline">
@@ -280,10 +327,19 @@ new Chart(document.getElementById('trendChart'), {
         labels,
         datasets: [
             {
-                label: 'ออเดอร์',
-                data: orders,
-                backgroundColor: 'rgba(59,130,246,0.7)',
-                borderRadius: 4,
+                label: 'J&T',
+                data: trendData.map(d => d.jt_count),
+                backgroundColor: 'rgba(59,130,246,0.75)',
+                borderRadius: 3,
+                stack: 'orders',
+                yAxisID: 'y',
+            },
+            {
+                label: 'Flash',
+                data: trendData.map(d => d.flash_count),
+                backgroundColor: 'rgba(249,115,22,0.75)',
+                borderRadius: 3,
+                stack: 'orders',
                 yAxisID: 'y',
             },
             {
@@ -301,9 +357,10 @@ new Chart(document.getElementById('trendChart'), {
     options: {
         responsive: true,
         maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
         plugins: { legend: { position: 'top' } },
         scales: {
-            y:  { beginAtZero: true, position: 'left',  title: { display: true, text: 'ออเดอร์' } },
+            y:  { beginAtZero: true, stacked: true, position: 'left',  title: { display: true, text: 'ออเดอร์' } },
             y1: { beginAtZero: true, position: 'right', title: { display: true, text: 'กล่อง' }, grid: { drawOnChartArea: false } },
         },
     },

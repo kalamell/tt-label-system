@@ -160,8 +160,13 @@
     {{-- Header --}}
     <div class="header">
         <span class="header-brand">TikTok Shop</span>
-        <span>J&amp;T Express</span>
-        <span class="header-service">EZ</span>
+        @if($order->carrier === 'FLASH')
+            <span>Flash Express</span>
+            <span class="header-service">{{ $order->service_type ?? 'NDD' }}</span>
+        @else
+            <span>J&amp;T Express</span>
+            <span class="header-service">{{ $order->service_type ?? 'EZ' }}</span>
+        @endif
     </div>
 
     {{-- Barcode --}}

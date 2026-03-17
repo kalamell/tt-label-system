@@ -192,6 +192,8 @@ class PdfParserService
     protected function parseLabelText(string $text): ?array
     {
         $data = [
+            'carrier' => null,
+            'service_type' => null,
             'tracking_number' => null,
             'order_id' => null,
             'sorting_code' => null,
@@ -216,10 +218,26 @@ class PdfParserService
         ];
 
         // ============================================================
-        // Tracking Number (12 หลัก ขึ้นต้นด้วย 79)
+        // Carrier Detection
+        // ============================================================
+        if (str_contains($text, 'FLASH')) {
+            $data['carrier'] = 'FLASH';
+        } elseif (str_contains($text, 'J&T') || str_contains($text, 'J&amp;T')) {
+            $data['carrier'] = 'JT';
+        }
+        if (preg_match('/\b(EZ|NDD)\b/', $text, $m)) {
+            $data['service_type'] = $m[1];
+        }
+
+        // ============================================================
+        // Tracking Number — J&T: 79xxxxxxxxxx (12 หลัก), Flash: THT... (alphanumeric)
         // ============================================================
         if (preg_match('/\b(79\d{10})\b/', $text, $m)) {
             $data['tracking_number'] = $m[1];
+            if (empty($data['carrier'])) $data['carrier'] = 'JT';
+        } elseif (preg_match('/\b(THT[A-Z0-9]{8,16})\b/', $text, $m)) {
+            $data['tracking_number'] = $m[1];
+            if (empty($data['carrier'])) $data['carrier'] = 'FLASH';
         }
 
         // ============================================================
@@ -230,19 +248,28 @@ class PdfParserService
         }
 
         // ============================================================
-        // Sorting Codes (เช่น L1 T46-36, 007A)
+        // Sorting Codes — J&T: "H1 G10-01", Flash: "17B-16449-03"
         // ============================================================
         if (preg_match('/([A-Z]\d+\s+[A-Z]\d+-\d+)/', $text, $m)) {
             $data['sorting_code'] = trim($m[1]);
+        } elseif (preg_match('/\b(\d+[A-Z]-\d+-\d+)\b/', $text, $m)) {
+            $data['sorting_code'] = trim($m[1]);
         }
+
+        // J&T: "006A", Flash: "C13", "C05"
         if (preg_match('/\b(\d{3}[A-Z])\b/', $text, $m)) {
+            $data['sorting_code_2'] = $m[1];
+        } elseif (preg_match('/\b([A-Z]\d{2,3})\b/', $text, $m)) {
             $data['sorting_code_2'] = $m[1];
         }
 
         // ============================================================
-        // Route Code (3 หลัก เช่น 698)
+        // Route Code — J&T: 3 หลัก เช่น 698, Flash zone: "4TAI_BSP-ทาอิ"
         // ============================================================
         if (preg_match('/\b(698|[0-9]{3})\b/', $text, $m)) {
+            $data['route_code'] = $m[1];
+        }
+        if (empty($data['route_code']) && preg_match('/\b([A-Z0-9]+_[A-Z]+-[\p{Thai}A-Za-z]+)/u', $text, $m)) {
             $data['route_code'] = $m[1];
         }
 
@@ -332,10 +359,12 @@ class PdfParserService
         }
 
         // ============================================================
-        // ประเภทการจ่ายเงิน
+        // ประเภทการจ่ายเงิน — Flash ไม่มี COD
         // ============================================================
         if (preg_match('/\bCOD\b/', $text)) {
             $data['payment_type'] = 'COD';
+        } elseif (($data['carrier'] ?? '') === 'FLASH') {
+            $data['payment_type'] = 'PREPAID';
         }
 
         // ============================================================

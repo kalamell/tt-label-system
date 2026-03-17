@@ -19,6 +19,24 @@
                         <p class="font-mono text-gray-700">{{ $order->order_id }}</p>
                     </div>
                     <div>
+                        <p class="text-gray-400 text-xs">ขนส่ง</p>
+                        <p class="font-medium text-gray-800">
+                            @if($order->carrier === 'FLASH')
+                                <span class="px-2 py-0.5 bg-orange-100 text-orange-700 rounded text-sm font-medium">Flash Express</span>
+                                @if($order->service_type)
+                                    <span class="text-gray-500 text-sm ml-1">· {{ $order->service_type }}</span>
+                                @endif
+                            @elseif($order->carrier === 'JT')
+                                <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-sm font-medium">J&amp;T Express</span>
+                                @if($order->service_type)
+                                    <span class="text-gray-500 text-sm ml-1">· {{ $order->service_type }}</span>
+                                @endif
+                            @else
+                                <span class="text-gray-400 text-sm">—</span>
+                            @endif
+                        </p>
+                    </div>
+                    <div>
                         <p class="text-gray-400 text-xs">Sorting Code</p>
                         <p class="font-bold text-xl">{{ $order->sorting_code }} / {{ $order->sorting_code_2 }}</p>
                     </div>

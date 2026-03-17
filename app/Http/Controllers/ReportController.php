@@ -28,6 +28,8 @@ class ReportController extends Controller
         $totalBoxes   = $ordersInRange->sum('quantity');
         $codCount     = $ordersInRange->where('payment_type', 'COD')->count();
         $prepaidCount = $ordersInRange->where('payment_type', 'PREPAID')->count();
+        $jtCount      = $ordersInRange->where('carrier', 'JT')->count();
+        $flashCount   = $ordersInRange->where('carrier', 'FLASH')->count();
 
         // สรุปรายวัน (ในช่วงที่เลือก)
         $dailySummary = Order::selectRaw('
@@ -35,7 +37,9 @@ class ReportController extends Controller
                 COUNT(*)                                    AS orders,
                 SUM(quantity)                               AS boxes,
                 SUM(payment_type = "COD")                   AS cod_count,
-                SUM(payment_type = "PREPAID")               AS prepaid_count
+                SUM(payment_type = "PREPAID")               AS prepaid_count,
+                SUM(carrier = "JT")                         AS jt_count,
+                SUM(carrier = "FLASH")                      AS flash_count
             ')
             ->whereRaw('COALESCE(shipping_date, DATE(created_at)) BETWEEN ? AND ?', [$dateFrom, $dateTo])
             ->where('status', '!=', 'cancelled')
@@ -70,7 +74,13 @@ class ReportController extends Controller
 
         // Trend 30 วันล่าสุด (สำหรับกราฟ)
         $since30 = now()->subDays(29)->toDateString();
-        $trend = Order::selectRaw('COALESCE(shipping_date, DATE(created_at)) AS date, COUNT(*) AS orders, SUM(quantity) AS boxes')
+        $trend = Order::selectRaw('
+                COALESCE(shipping_date, DATE(created_at)) AS date,
+                COUNT(*) AS orders,
+                SUM(quantity) AS boxes,
+                SUM(carrier = "JT") AS jt_count,
+                SUM(carrier = "FLASH") AS flash_count
+            ')
             ->whereRaw('COALESCE(shipping_date, DATE(created_at)) >= ?', [$since30])
             ->where('status', '!=', 'cancelled')
             ->groupByRaw('COALESCE(shipping_date, DATE(created_at))')
@@ -83,16 +93,18 @@ class ReportController extends Controller
         for ($i = 29; $i >= 0; $i--) {
             $d = now()->subDays($i)->toDateString();
             $trendDays->push([
-                'date'   => $d,
-                'label'  => Carbon::parse($d)->format('d/m'),
-                'orders' => $trend[$d]->orders ?? 0,
-                'boxes'  => $trend[$d]->boxes  ?? 0,
+                'date'        => $d,
+                'label'       => Carbon::parse($d)->format('d/m'),
+                'orders'      => $trend[$d]->orders      ?? 0,
+                'boxes'       => $trend[$d]->boxes        ?? 0,
+                'jt_count'    => $trend[$d]->jt_count    ?? 0,
+                'flash_count' => $trend[$d]->flash_count ?? 0,
             ]);
         }
 
         return view('reports.daily', compact(
             'dateFrom', 'dateTo',
-            'totalOrders', 'totalBoxes', 'codCount', 'prepaidCount',
+            'totalOrders', 'totalBoxes', 'codCount', 'prepaidCount', 'jtCount', 'flashCount',
             'dailySummary', 'productSummary', 'provinceSummary',
             'ordersInRange', 'trendDays'
         ));
@@ -124,7 +136,7 @@ class ReportController extends Controller
             fputs($f, "\xEF\xBB\xBF"); // BOM สำหรับ Excel
 
             fputcsv($f, [
-                'วันที่จัดส่ง', 'Order ID', 'Tracking Number',
+                'วันที่จัดส่ง', 'Order ID', 'Tracking Number', 'ขนส่ง', 'บริการ',
                 'ผู้รับ', 'อำเภอ', 'จังหวัด', 'รหัสไปรษณีย์',
                 'ชำระเงิน', 'ประเภทจัดส่ง',
                 'สินค้าในระบบ', 'Seller SKU', 'จำนวน', 'Lot',
@@ -136,6 +148,8 @@ class ReportController extends Controller
                     ($o->shipping_date ?? $o->created_at)->format('Y-m-d'),
                     $o->order_id,
                     $o->tracking_number,
+                    match($o->carrier) { 'JT' => 'J&T Express', 'FLASH' => 'Flash Express', default => '-' },
+                    $o->service_type ?? '-',
                     $o->recipient_name,
                     $o->recipient_district,
                     $o->recipient_province,
