@@ -70,9 +70,12 @@ Route::prefix('customers')->name('customers.')->group(function () {
 
 Route::prefix('inventory')->name('inventory.')->group(function () {
     Route::get('/', [InventoryController::class, 'index'])->name('index');
+    Route::get('/actions', [InventoryController::class, 'actionsForm'])->name('actions');
     Route::get('/receive', [InventoryController::class, 'receiveForm'])->name('receive.form');
     Route::post('/receive', [InventoryController::class, 'receive'])->name('receive');
     Route::get('/transactions', [InventoryController::class, 'transactions'])->name('transactions');
+    Route::get('/issue', [InventoryController::class, 'issueForm'])->name('issue.form');
+    Route::post('/issue', [InventoryController::class, 'issue'])->name('issue');
     Route::get('/{product}', [InventoryController::class, 'show'])->name('show');
     Route::post('/lots/{lot}/adjust', [InventoryController::class, 'adjust'])->name('adjust');
 });

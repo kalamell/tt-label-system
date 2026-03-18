@@ -4,7 +4,7 @@
 
 @section('content')
 
-    {{-- Expiring Lots Alert (top) --}}
+    {{-- Expiring Lots Alert --}}
     @if($expiringLots->isNotEmpty())
         <div class="mb-5 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
             <svg class="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -26,66 +26,80 @@
         </div>
     @endif
 
+    {{-- Period Selector --}}
+    <div class="flex items-center gap-2 mb-5">
+        <span class="text-sm text-gray-400 mr-1">ดูข้อมูล:</span>
+        @foreach(['today' => 'วันนี้', 'week' => 'สัปดาห์นี้', 'month' => 'เดือนนี้', 'year' => 'ปีนี้'] as $key => $label)
+            <a href="{{ route('dashboard', ['period' => $key]) }}"
+               class="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors
+                      {{ $period === $key
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50' }}">
+                {{ $label }}
+            </a>
+        @endforeach
+    </div>
+
     {{-- Stat Cards แถว 1: ภาพรวม --}}
     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-3">
         <div class="bg-white rounded-xl border border-gray-200 p-4">
-            <p class="text-xs text-gray-400 mb-1">ออเดอร์วันนี้</p>
-            <p class="text-2xl font-bold text-gray-900">{{ number_format($todayOrders) }}</p>
+            <p class="text-xs text-gray-400 mb-1">ออเดอร์{{ $periodShort }}</p>
+            <p class="text-2xl font-bold text-gray-900">{{ number_format($periodOrders) }}</p>
             <p class="text-xs text-gray-400 mt-0.5">รายการ</p>
         </div>
         <div class="bg-white rounded-xl border border-gray-200 p-4">
-            <p class="text-xs text-gray-400 mb-1">กล่องวันนี้</p>
-            <p class="text-2xl font-bold text-purple-600">{{ number_format($todayBoxes) }}</p>
+            <p class="text-xs text-gray-400 mb-1">กล่อง{{ $periodShort }}</p>
+            <p class="text-2xl font-bold text-purple-600">{{ number_format($periodBoxes) }}</p>
             <p class="text-xs text-gray-400 mt-0.5">ชิ้น</p>
         </div>
         <div class="bg-white rounded-xl border border-gray-200 p-4">
-            <p class="text-xs text-gray-400 mb-1">รอพิมพ์</p>
+            <p class="text-xs text-gray-400 mb-1">รอพิมพ์ (ทั้งหมด)</p>
             <p class="text-2xl font-bold text-orange-500">{{ number_format($pendingOrders) }}</p>
             <p class="text-xs text-gray-400 mt-0.5">ออเดอร์</p>
         </div>
         <div class="bg-white rounded-xl border border-gray-200 p-4">
-            <p class="text-xs text-gray-400 mb-1">พิมพ์แล้ววันนี้</p>
-            <p class="text-2xl font-bold text-green-600">{{ number_format($printedToday) }}</p>
+            <p class="text-xs text-gray-400 mb-1">พิมพ์แล้ว{{ $periodShort }}</p>
+            <p class="text-2xl font-bold text-green-600">{{ number_format($periodPrinted) }}</p>
             <p class="text-xs text-gray-400 mt-0.5">ออเดอร์</p>
         </div>
         <div class="bg-white rounded-xl border border-gray-200 p-4">
-            <p class="text-xs text-gray-400 mb-1">COD วันนี้</p>
-            <p class="text-2xl font-bold text-rose-500">{{ number_format($todayCod) }}</p>
+            <p class="text-xs text-gray-400 mb-1">COD {{ $periodShort }}</p>
+            <p class="text-2xl font-bold text-rose-500">{{ number_format($periodCod) }}</p>
             <p class="text-xs text-gray-400 mt-0.5">ออเดอร์</p>
         </div>
         <div class="bg-white rounded-xl border border-gray-200 p-4">
-            <p class="text-xs text-gray-400 mb-1">โอนแล้ว</p>
-            <p class="text-2xl font-bold text-blue-600">{{ number_format($todayPrepaid) }}</p>
+            <p class="text-xs text-gray-400 mb-1">โอน{{ $periodShort }}</p>
+            <p class="text-2xl font-bold text-blue-600">{{ number_format($periodPrepaid) }}</p>
             <p class="text-xs text-gray-400 mt-0.5">ออเดอร์</p>
         </div>
     </div>
 
     {{-- Stat Cards แถว 2: แยกขนส่ง --}}
-    @php $carrierTotal = $todayJt + $todayFlash; @endphp
+    @php $carrierTotal = $periodJt + $periodFlash; @endphp
     <div class="grid grid-cols-2 gap-4 mb-6">
         <div class="bg-blue-50 rounded-xl border border-blue-200 p-4 flex items-center gap-4">
             <div class="flex-1">
-                <p class="text-xs text-blue-500 mb-1 font-medium">J&amp;T Express วันนี้</p>
-                <p class="text-3xl font-bold text-blue-700">{{ number_format($todayJt) }}</p>
+                <p class="text-xs text-blue-500 mb-1 font-medium">J&amp;T Express · {{ $periodLabel }}</p>
+                <p class="text-3xl font-bold text-blue-700">{{ number_format($periodJt) }}</p>
                 <p class="text-xs text-blue-400 mt-0.5">ออเดอร์</p>
             </div>
             @if($carrierTotal > 0)
             <div class="text-right flex-shrink-0">
-                <p class="text-2xl font-bold text-blue-600">{{ round($todayJt / $carrierTotal * 100) }}<span class="text-base font-normal">%</span></p>
-                <p class="text-xs text-blue-400">ของขนส่งวันนี้</p>
+                <p class="text-2xl font-bold text-blue-600">{{ round($periodJt / $carrierTotal * 100) }}<span class="text-base font-normal">%</span></p>
+                <p class="text-xs text-blue-400">ของขนส่ง{{ $periodShort }}</p>
             </div>
             @endif
         </div>
         <div class="bg-orange-50 rounded-xl border border-orange-200 p-4 flex items-center gap-4">
             <div class="flex-1">
-                <p class="text-xs text-orange-500 mb-1 font-medium">Flash Express วันนี้</p>
-                <p class="text-3xl font-bold text-orange-600">{{ number_format($todayFlash) }}</p>
+                <p class="text-xs text-orange-500 mb-1 font-medium">Flash Express · {{ $periodLabel }}</p>
+                <p class="text-3xl font-bold text-orange-600">{{ number_format($periodFlash) }}</p>
                 <p class="text-xs text-orange-400 mt-0.5">ออเดอร์</p>
             </div>
             @if($carrierTotal > 0)
             <div class="text-right flex-shrink-0">
-                <p class="text-2xl font-bold text-orange-500">{{ round($todayFlash / $carrierTotal * 100) }}<span class="text-base font-normal">%</span></p>
-                <p class="text-xs text-orange-400">ของขนส่งวันนี้</p>
+                <p class="text-2xl font-bold text-orange-500">{{ round($periodFlash / $carrierTotal * 100) }}<span class="text-base font-normal">%</span></p>
+                <p class="text-xs text-orange-400">ของขนส่ง{{ $periodShort }}</p>
             </div>
             @endif
         </div>
@@ -94,10 +108,15 @@
     {{-- Row: Trend + Province --}}
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
 
-        {{-- 7-Day Trend Chart --}}
+        {{-- Trend Chart --}}
         <div class="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="font-semibold text-gray-800">แนวโน้ม 7 วันล่าสุด</h3>
+                <h3 class="font-semibold text-gray-800">
+                    @if($period === 'year') แนวโน้มรายเดือน ({{ now()->year }})
+                    @elseif($period === 'month') แนวโน้ม 30 วันล่าสุด
+                    @else แนวโน้ม 7 วันล่าสุด
+                    @endif
+                </h3>
                 <a href="{{ route('reports.daily') }}" class="text-xs text-blue-600 hover:underline">ดูรายงานเต็ม →</a>
             </div>
             <canvas id="trendChart" height="100"></canvas>
@@ -105,9 +124,9 @@
 
         {{-- Top Provinces --}}
         <div class="bg-white rounded-xl border border-gray-200 p-5">
-            <h3 class="font-semibold text-gray-800 mb-4">จังหวัดวันนี้ (Top 6)</h3>
-            @php $maxCnt = $todayProvinces->max('cnt') ?: 1; @endphp
-            @forelse($todayProvinces as $prov)
+            <h3 class="font-semibold text-gray-800 mb-4">จังหวัด{{ $periodLabel }} (Top 6)</h3>
+            @php $maxCnt = $periodProvinces->max('cnt') ?: 1; @endphp
+            @forelse($periodProvinces as $prov)
                 <div class="mb-3">
                     <div class="flex justify-between text-xs mb-0.5">
                         <span class="text-gray-700 font-medium truncate pr-2">{{ $prov->recipient_province }}</span>
@@ -119,19 +138,19 @@
                     </div>
                 </div>
             @empty
-                <p class="text-sm text-gray-400 text-center py-8">ยังไม่มีออเดอร์วันนี้</p>
+                <p class="text-sm text-gray-400 text-center py-8">ยังไม่มีออเดอร์{{ $periodLabel }}</p>
             @endforelse
         </div>
     </div>
 
-    {{-- Row: Product Summary Today + Stock --}}
+    {{-- Row: Product Summary + Stock --}}
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
 
-        {{-- Today Product Breakdown --}}
+        {{-- Product Breakdown --}}
         <div class="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5">
-            <h3 class="font-semibold text-gray-800 mb-4">สรุปสินค้าวันนี้</h3>
-            @if($todayProducts->isEmpty())
-                <p class="text-sm text-gray-400 text-center py-8">ยังไม่มีออเดอร์วันนี้</p>
+            <h3 class="font-semibold text-gray-800 mb-4">สรุปสินค้า{{ $periodLabel }}</h3>
+            @if($periodProducts->isEmpty())
+                <p class="text-sm text-gray-400 text-center py-8">ยังไม่มีออเดอร์{{ $periodLabel }}</p>
             @else
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
@@ -144,7 +163,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach($todayProducts as $tp)
+                            @foreach($periodProducts as $tp)
                                 @php $prod = $tp->product; @endphp
                                 <tr class="border-b border-gray-50 hover:bg-gray-50">
                                     <td class="py-2.5 pr-4">
@@ -213,6 +232,7 @@
             <table class="w-full text-sm">
                 <thead>
                     <tr class="text-left text-xs text-gray-400 uppercase border-b">
+                        <th class="pb-2 pr-4">ขนส่ง</th>
                         <th class="pb-2 pr-4">Tracking</th>
                         <th class="pb-2 pr-4">ผู้รับ</th>
                         <th class="pb-2 pr-4">จังหวัด</th>
@@ -226,6 +246,15 @@
                     @forelse($recentOrders as $order)
                         <tr class="border-b border-gray-50 hover:bg-gray-50 cursor-pointer"
                             onclick="window.location='{{ route('orders.show', $order) }}'">
+                            <td class="py-2 pr-4">
+                                @if($order->carrier === 'FLASH')
+                                    <span class="px-1.5 py-0.5 bg-orange-50 text-orange-600 rounded text-xs font-medium">Flash</span>
+                                @elseif($order->carrier === 'JT')
+                                    <span class="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-xs font-medium">J&amp;T</span>
+                                @else
+                                    <span class="text-gray-300 text-xs">—</span>
+                                @endif
+                            </td>
                             <td class="py-2 pr-4 font-mono text-xs text-gray-600">{{ $order->tracking_number }}</td>
                             <td class="py-2 pr-4 text-gray-700">{{ Str::limit($order->recipient_name, 18) }}</td>
                             <td class="py-2 pr-4 text-gray-500 text-xs">{{ $order->recipient_province }}</td>
@@ -240,14 +269,11 @@
                             <td class="py-2 pr-4">
                                 @switch($order->status)
                                     @case('pending')
-                                        <span class="px-2 py-0.5 bg-yellow-50 text-yellow-700 rounded-full text-xs">รอพิมพ์</span>
-                                        @break
+                                        <span class="px-2 py-0.5 bg-yellow-50 text-yellow-700 rounded-full text-xs">รอพิมพ์</span>@break
                                     @case('printed')
-                                        <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-xs">พิมพ์แล้ว</span>
-                                        @break
+                                        <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-xs">พิมพ์แล้ว</span>@break
                                     @case('shipped')
-                                        <span class="px-2 py-0.5 bg-green-50 text-green-700 rounded-full text-xs">จัดส่งแล้ว</span>
-                                        @break
+                                        <span class="px-2 py-0.5 bg-green-50 text-green-700 rounded-full text-xs">จัดส่งแล้ว</span>@break
                                     @default
                                         <span class="px-2 py-0.5 bg-gray-50 text-gray-600 rounded-full text-xs">{{ $order->status }}</span>
                                 @endswitch
@@ -256,7 +282,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="text-center py-8 text-gray-400">ยังไม่มีออเดอร์</td>
+                            <td colspan="8" class="text-center py-8 text-gray-400">ยังไม่มีออเดอร์</td>
                         </tr>
                     @endforelse
                 </tbody>

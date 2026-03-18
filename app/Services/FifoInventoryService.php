@@ -146,6 +146,76 @@ class FifoInventoryService
 
     /**
      * ============================================================
+     * จ่ายออก (ออฟไลน์) — ตัด FIFO เหมือน deductStock แต่ไม่มี Order
+     * ใช้สำหรับขายหน้าร้าน / ตัวแทน / แจกตัวอย่าง
+     * ============================================================
+     *
+     * @return array ['success' => bool, 'deductions' => [...], 'message' => string]
+     */
+    public function issueStock(
+        int    $productId,
+        int    $quantity,
+        string $channel = 'ออฟไลน์',
+        ?string $notes  = null
+    ): array {
+        return DB::transaction(function () use ($productId, $quantity, $channel, $notes) {
+            $lots = InventoryLot::where('product_id', $productId)
+                ->fifoOrder()
+                ->lockForUpdate()
+                ->get();
+
+            $totalAvailable = $lots->sum('quantity_remaining');
+
+            if ($totalAvailable < $quantity) {
+                return [
+                    'success'    => false,
+                    'deductions' => [],
+                    'message'    => "สต๊อกไม่เพียงพอ ต้องการ {$quantity} ชิ้น แต่มีเพียง {$totalAvailable} ชิ้น",
+                ];
+            }
+
+            $remaining  = $quantity;
+            $deductions = [];
+            $ref        = 'OFFLINE-' . now()->format('Ymd-His');
+
+            foreach ($lots as $lot) {
+                if ($remaining <= 0) break;
+
+                $deducted   = $lot->deduct($remaining);
+                $remaining -= $deducted;
+
+                $totalStock = InventoryLot::where('product_id', $productId)
+                    ->where('status', 'active')
+                    ->sum('quantity_remaining');
+
+                InventoryTransaction::create([
+                    'product_id'       => $productId,
+                    'inventory_lot_id' => $lot->id,
+                    'type'             => 'out',
+                    'quantity'         => $deducted,
+                    'balance_after'    => $totalStock,
+                    'reference'        => $ref,
+                    'notes'            => trim("จ่ายออก [{$channel}] Lot {$lot->lot_number} {$deducted} ชิ้น" . ($notes ? " · {$notes}" : '')),
+                ]);
+
+                $deductions[] = [
+                    'lot_number'        => $lot->lot_number,
+                    'deducted'          => $deducted,
+                    'remaining_in_lot'  => $lot->quantity_remaining,
+                ];
+            }
+
+            return [
+                'success'    => true,
+                'deductions' => $deductions,
+                'message'    => "จ่ายออกสำเร็จ {$quantity} ชิ้น ช่องทาง: {$channel}",
+                'reference'  => $ref,
+            ];
+        });
+    }
+
+    /**
+     * ============================================================
      * ปรับปรุงสต๊อก (เพิ่ม/ลด) — ใช้กรณีนับสต๊อกจริง
      * ============================================================
      */

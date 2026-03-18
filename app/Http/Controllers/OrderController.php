@@ -342,16 +342,55 @@ class OrderController extends Controller
     }
 
     /**
-     * Print Label หลายรายการ (Batch PDF รวมไฟล์เดียว)
+     * Build filtered query (ใช้ร่วมกับ index + batch actions)
      */
-    public function printBatch(Request $request)
+    private function _buildFilteredQuery(Request $request)
     {
+        $query = Order::orderByRaw('COALESCE(shipping_date, created_at) DESC');
+
+        if ($search = $request->get('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('tracking_number', 'like', "%{$search}%")
+                    ->orWhere('order_id', 'like', "%{$search}%")
+                    ->orWhere('recipient_name', 'like', "%{$search}%")
+                    ->orWhere('carrier', 'like', "%{$search}%");
+            });
+        }
+        if ($status = $request->get('status')) {
+            $query->where('status', $status);
+        }
+        if ($carrier = $request->get('carrier')) {
+            $query->where('carrier', $carrier);
+        }
+        if ($date = $request->get('date')) {
+            $query->whereDate('shipping_date', $date);
+        }
+
+        return $query;
+    }
+
+    /**
+     * คืน collection ของ Order จาก request (select_all หรือ order_ids)
+     */
+    private function _resolveOrders(Request $request)
+    {
+        if ($request->boolean('select_all')) {
+            return $this->_buildFilteredQuery($request)->get();
+        }
+
         $request->validate([
             'order_ids'   => 'required|array|min:1',
             'order_ids.*' => 'exists:orders,id',
         ]);
+        return Order::whereIn('id', $request->input('order_ids'))->get();
+    }
 
-        $orders = Order::whereIn('id', $request->input('order_ids'))->get();
+    /**
+     * Print Label หลายรายการ (Batch PDF รวมไฟล์เดียว)
+     */
+    public function printBatch(Request $request)
+    {
+        $orders = $this->_resolveOrders($request);
         $path   = $this->labelGenerator->generateBatchLabels($orders);
 
         return response()->download($path);
@@ -362,10 +401,7 @@ class OrderController extends Controller
      */
     public function downloadZip(Request $request)
     {
-        $request->validate([
-            'order_ids'   => 'required|array|min:1',
-            'order_ids.*' => 'exists:orders,id',
-        ]);
+        $orders = $this->_resolveOrders($request);
 
         $orders = Order::whereIn('id', $request->input('order_ids'))->get();
 
@@ -405,13 +441,12 @@ class OrderController extends Controller
      */
     public function deleteBatch(Request $request)
     {
-        $request->validate([
-            'order_ids'   => 'required|array|min:1',
-            'order_ids.*' => 'exists:orders,id',
-        ]);
+        $orderIds = $request->boolean('select_all')
+            ? $this->_buildFilteredQuery($request)->pluck('id')
+            : collect($request->input('order_ids', []));
 
         $orders = Order::with('transactions.inventoryLot')
-            ->whereIn('id', $request->input('order_ids'))
+            ->whereIn('id', $orderIds)
             ->get();
 
         $deletedCount = 0;

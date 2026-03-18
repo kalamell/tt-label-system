@@ -5,13 +5,22 @@
 @section('content')
     <div class="flex items-center justify-between mb-4">
         <p class="text-sm text-gray-500">สินค้าทั้งหมด {{ $products->count() }} รายการ</p>
-        <a href="{{ route('inventory.receive.form') }}"
-           class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-            </svg>
-            รับสินค้าเข้าคลัง
-        </a>
+        <div class="flex gap-2">
+            <a href="{{ route('inventory.issue.form') }}"
+               class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                </svg>
+                จ่ายออก (ออฟไลน์)
+            </a>
+            <a href="{{ route('inventory.receive.form') }}"
+               class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                </svg>
+                รับสินค้าเข้าคลัง
+            </a>
+        </div>
     </div>
 
     @if($products->isEmpty())

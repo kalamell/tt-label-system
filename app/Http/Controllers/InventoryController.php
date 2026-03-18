@@ -57,13 +57,43 @@ class InventoryController extends Controller
 
     /**
      * ============================================================
+     * หน้ารับเข้า + จ่ายออก แบบ side-by-side
+     * ============================================================
+     */
+    public function actionsForm(Request $request)
+    {
+        $products = Product::active()->get();
+
+        $issueProducts = Product::active()->get()->map(function ($p) {
+            return [
+                'product'     => $p,
+                'total_stock' => $p->total_stock,
+                'next_lot'    => $p->inventoryLots()
+                    ->where('status', 'active')
+                    ->orderBy('received_date')
+                    ->first()?->lot_number,
+            ];
+        })->filter(fn($p) => $p['total_stock'] > 0)->values();
+
+        return view('inventory.stock-actions', compact('products', 'issueProducts'));
+    }
+
+    /**
+     * ============================================================
      * ฟอร์มรับสินค้าเข้าคลัง (สร้าง Lot ใหม่)
      * ============================================================
      */
     public function receiveForm()
     {
         $products = Product::active()->get();
-        return view('inventory.receive', compact('products'));
+
+        $recentTransactions = InventoryTransaction::with(['product', 'inventoryLot'])
+            ->where('type', 'in')
+            ->latest()
+            ->limit(30)
+            ->get();
+
+        return view('inventory.receive', compact('products', 'recentTransactions'));
     }
 
     /**
@@ -93,7 +123,7 @@ class InventoryController extends Controller
             notes: $request->input('notes'),
         );
 
-        return redirect()->route('inventory.show', $lot->product_id)
+        return redirect()->route('inventory.receive.form')
             ->with('success', "รับเข้า Lot {$lot->lot_number} จำนวน {$lot->quantity_received} ชิ้น สำเร็จ");
     }
 
@@ -116,6 +146,66 @@ class InventoryController extends Controller
         );
 
         return back()->with('success', "ปรับปรุงสต๊อก Lot {$lot->lot_number} สำเร็จ");
+    }
+
+    /**
+     * ============================================================
+     * ฟอร์มจ่ายออก (ออฟไลน์)
+     * ============================================================
+     */
+    public function issueForm(Request $request)
+    {
+        $products = Product::active()->get()->map(function ($p) {
+            return [
+                'product'     => $p,
+                'total_stock' => $p->total_stock,
+                'next_lot'    => $p->inventoryLots()
+                    ->where('status', 'active')
+                    ->orderBy('received_date')
+                    ->first()?->lot_number,
+            ];
+        })->filter(fn($p) => $p['total_stock'] > 0);
+
+        $selectedProductId = $request->get('product_id');
+
+        $recentTransactions = InventoryTransaction::with(['product', 'inventoryLot'])
+            ->where('type', 'out')
+            ->where('reference', 'like', 'OFFLINE-%')
+            ->latest()
+            ->limit(30)
+            ->get();
+
+        return view('inventory.issue', compact('products', 'selectedProductId', 'recentTransactions'));
+    }
+
+    /**
+     * ============================================================
+     * บันทึกจ่ายออก (ออฟไลน์) — ตัด FIFO
+     * ============================================================
+     */
+    public function issue(Request $request)
+    {
+        $request->validate([
+            'product_id' => 'required|exists:products,id',
+            'quantity'   => 'required|integer|min:1',
+            'channel'    => 'required|string|max:100',
+            'notes'      => 'nullable|string|max:500',
+        ]);
+
+        $result = $this->fifoService->issueStock(
+            productId: (int) $request->input('product_id'),
+            quantity:  (int) $request->input('quantity'),
+            channel:   $request->input('channel'),
+            notes:     $request->input('notes'),
+        );
+
+        if (!$result['success']) {
+            return back()->withInput()->with('error', $result['message']);
+        }
+
+        return redirect()
+            ->route('inventory.issue.form')
+            ->with('success', $result['message'] . " (Ref: {$result['reference']})");
     }
 
     /**

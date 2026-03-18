@@ -89,10 +89,30 @@
         </div>
     </div>
 
+    {{-- Select-All Banner (ซ่อนไว้ก่อน) --}}
+    <div id="select-all-banner" class="hidden mb-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center gap-3 text-sm">
+        <span class="text-blue-700">เลือก <strong>{{ $orders->total() }}</strong> รายการในหน้านี้แล้ว</span>
+        <button type="button" onclick="selectAllPages()"
+                class="px-3 py-1 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700">
+            เลือกทั้งหมด {{ number_format($orders->total()) }} รายการ
+        </button>
+        <button type="button" onclick="clearSelectAll()" class="text-blue-400 hover:text-blue-600 text-xs ml-auto">ยกเลิก</button>
+    </div>
+    <div id="select-all-active-banner" class="hidden mb-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3 flex items-center gap-3 text-sm">
+        <svg class="w-4 h-4 text-green-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+        </svg>
+        <span class="text-green-700">เลือกทั้งหมด <strong>{{ number_format($orders->total()) }}</strong> รายการ (ทุกหน้า) แล้ว</span>
+        <button type="button" onclick="clearSelectAll()" class="text-green-500 hover:text-green-700 text-xs ml-auto">ยกเลิก</button>
+    </div>
+
     {{-- Orders Table --}}
     <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {{-- Batch print form --}}
         <form id="batch-form" action="{{ route('orders.print.batch') }}" method="POST">
+            @foreach(request()->only(['search','status','date','carrier']) as $key => $val)
+                @if($val)<input type="hidden" name="{{ $key }}" value="{{ $val }}">@endif
+            @endforeach
             @csrf
             <table class="w-full text-sm">
                 <thead class="bg-gray-50 border-b">
@@ -204,11 +224,17 @@
     {{-- Hidden form for ZIP download --}}
     <form id="zip-form" action="{{ route('orders.download.zip') }}" method="POST" class="hidden">
         @csrf
+        @foreach(request()->only(['search','status','date','carrier']) as $key => $val)
+            @if($val)<input type="hidden" name="{{ $key }}" value="{{ $val }}">@endif
+        @endforeach
     </form>
 
     {{-- Hidden form for batch delete --}}
     <form id="delete-form" action="{{ route('orders.delete.batch') }}" method="POST" class="hidden">
         @csrf
+        @foreach(request()->only(['search','status','date','carrier']) as $key => $val)
+            @if($val)<input type="hidden" name="{{ $key }}" value="{{ $val }}">@endif
+        @endforeach
     </form>
 
     {{-- Pagination --}}
@@ -220,21 +246,63 @@
 
 @push('scripts')
 <script>
-    // Select all checkboxes
+    let _selectAllPages = false; // สถานะ "เลือกทั้งหมดทุกหน้า"
+    const totalOrders = {{ $orders->total() }};
+    const pageCount   = {{ $orders->count() }};
+
+    // Select all checkboxes ในหน้านี้
     document.getElementById('check-all')?.addEventListener('change', function() {
         document.querySelectorAll('.order-check').forEach(cb => cb.checked = this.checked);
+        _selectAllPages = false;
         toggleBatchBtns();
+        toggleSelectAllBanner();
     });
 
     document.querySelectorAll('.order-check').forEach(cb => {
-        cb.addEventListener('change', toggleBatchBtns);
+        cb.addEventListener('change', () => {
+            _selectAllPages = false;
+            toggleBatchBtns();
+            toggleSelectAllBanner();
+        });
     });
 
     function toggleBatchBtns() {
-        const checked = document.querySelectorAll('.order-check:checked').length;
-        document.getElementById('btn-batch-print').classList.toggle('hidden', checked === 0);
-        document.getElementById('btn-zip').classList.toggle('hidden', checked === 0);
-        document.getElementById('btn-delete').classList.toggle('hidden', checked === 0);
+        const checked = _selectAllPages || document.querySelectorAll('.order-check:checked').length > 0;
+        document.getElementById('btn-batch-print').classList.toggle('hidden', !checked);
+        document.getElementById('btn-zip').classList.toggle('hidden', !checked);
+        document.getElementById('btn-delete').classList.toggle('hidden', !checked);
+    }
+
+    function toggleSelectAllBanner() {
+        const checkedCount = document.querySelectorAll('.order-check:checked').length;
+        const banner        = document.getElementById('select-all-banner');
+        const activeBanner  = document.getElementById('select-all-active-banner');
+
+        if (_selectAllPages) {
+            banner.classList.add('hidden');
+            activeBanner.classList.remove('hidden');
+        } else if (checkedCount === pageCount && checkedCount > 0 && totalOrders > pageCount) {
+            // เลือกครบหน้า แต่ยังมีหน้าอื่น → แสดง banner ให้เลือกทั้งหมด
+            banner.classList.remove('hidden');
+            activeBanner.classList.add('hidden');
+        } else {
+            banner.classList.add('hidden');
+            activeBanner.classList.add('hidden');
+        }
+    }
+
+    function selectAllPages() {
+        _selectAllPages = true;
+        toggleBatchBtns();
+        toggleSelectAllBanner();
+    }
+
+    function clearSelectAll() {
+        _selectAllPages = false;
+        document.querySelectorAll('.order-check').forEach(cb => cb.checked = false);
+        document.getElementById('check-all').checked = false;
+        toggleBatchBtns();
+        toggleSelectAllBanner();
     }
 
     function setBtnLoading(btn, text) {
@@ -244,54 +312,56 @@
         btn.querySelector('.btn-text').textContent = text;
     }
 
-    function resetBtn(btn, icon, text) {
+    function resetBtn(btn, text) {
         btn.disabled = false;
         btn.querySelector('.btn-icon').classList.remove('hidden');
         btn.querySelector('.btn-spinner').classList.add('hidden');
         btn.querySelector('.btn-text').textContent = text;
     }
 
+    function _injectOrderIds(form) {
+        form.querySelectorAll('input[name="order_ids[]"], input[name="select_all"]').forEach(el => el.remove());
+
+        if (_selectAllPages) {
+            const input = document.createElement('input');
+            input.type  = 'hidden';
+            input.name  = 'select_all';
+            input.value = '1';
+            form.appendChild(input);
+        } else {
+            document.querySelectorAll('.order-check:checked').forEach(cb => {
+                const input = document.createElement('input');
+                input.type  = 'hidden';
+                input.name  = 'order_ids[]';
+                input.value = cb.value;
+                form.appendChild(input);
+            });
+        }
+    }
+
     function printSelected(btn) {
+        _injectOrderIds(document.getElementById('batch-form'));
         setBtnLoading(btn, 'กำลังสร้าง PDF...');
         document.getElementById('batch-form').submit();
-        // download ไม่ navigate — คืนสถานะหลัง 5 วินาที
-        setTimeout(() => resetBtn(btn, null, 'พิมพ์ PDF รวม'), 5000);
+        setTimeout(() => resetBtn(btn, 'พิมพ์ PDF รวม'), 8000);
     }
 
     function downloadZip(btn) {
-        const checked = document.querySelectorAll('.order-check:checked');
         const form = document.getElementById('zip-form');
-
-        form.querySelectorAll('input[name="order_ids[]"]').forEach(el => el.remove());
-        checked.forEach(cb => {
-            const input = document.createElement('input');
-            input.type  = 'hidden';
-            input.name  = 'order_ids[]';
-            input.value = cb.value;
-            form.appendChild(input);
-        });
-
+        _injectOrderIds(form);
         setBtnLoading(btn, 'กำลังสร้าง ZIP...');
         form.submit();
-        // download ไม่ navigate — คืนสถานะหลัง 8 วินาที
-        setTimeout(() => resetBtn(btn, null, 'Download ZIP'), 8000);
+        setTimeout(() => resetBtn(btn, 'Download ZIP'), 15000);
     }
 
     function deleteSelected() {
-        const checked = document.querySelectorAll('.order-check:checked');
-        if (checked.length === 0) return;
+        const count = _selectAllPages ? totalOrders : document.querySelectorAll('.order-check:checked').length;
+        if (count === 0) return;
 
-        if (!confirm(`ต้องการลบ ${checked.length} ออเดอร์ที่เลือก?\nระบบจะคืนสต๊อก FIFO ให้อัตโนมัติ`)) return;
+        if (!confirm(`ต้องการลบ ${count} ออเดอร์ที่เลือก?\nระบบจะคืนสต๊อก FIFO ให้อัตโนมัติ`)) return;
 
         const form = document.getElementById('delete-form');
-        form.querySelectorAll('input[name="order_ids[]"]').forEach(el => el.remove());
-        checked.forEach(cb => {
-            const input = document.createElement('input');
-            input.type  = 'hidden';
-            input.name  = 'order_ids[]';
-            input.value = cb.value;
-            form.appendChild(input);
-        });
+        _injectOrderIds(form);
         form.submit();
     }
 
@@ -299,7 +369,6 @@
         link.querySelector('.print-spin').classList.remove('hidden');
         link.querySelector('.print-label').textContent = '...';
         link.classList.add('pointer-events-none', 'opacity-60');
-        // download ไม่ navigate — คืนสถานะหลัง 5 วินาที
         setTimeout(() => {
             link.querySelector('.print-spin').classList.add('hidden');
             link.querySelector('.print-label').textContent = 'พิมพ์';

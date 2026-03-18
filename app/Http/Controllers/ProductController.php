@@ -7,14 +7,24 @@ use Illuminate\Http\Request;
 
 class ProductController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        $search = $request->get('q');
+
         $products = Product::withCount([
             'inventoryLots as active_lots_count' => fn($q) => $q->where('status', 'active'),
             'orders',
-        ])->get();
+        ])
+        ->when($search, function ($q, $s) {
+            $q->where(function ($q) use ($s) {
+                $q->where('name', 'like', "%{$s}%")
+                  ->orWhere('sku', 'like', "%{$s}%")
+                  ->orWhere('seller_sku', 'like', "%{$s}%");
+            });
+        })
+        ->get();
 
-        return view('products.index', compact('products'));
+        return view('products.index', compact('products', 'search'));
     }
 
     public function create()

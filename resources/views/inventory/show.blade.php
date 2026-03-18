@@ -61,10 +61,16 @@
         <div class="col-span-3">
             <div class="flex items-center justify-between mb-3">
                 <h3 class="text-sm font-semibold text-gray-700">Lots ที่ Active (เรียง FIFO)</h3>
-                <a href="{{ route('inventory.receive.form') }}"
-                   class="px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700">
-                    + รับเข้าคลัง
-                </a>
+                <div class="flex gap-2">
+                    <a href="{{ route('inventory.issue.form', ['product_id' => $product->id]) }}"
+                       class="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700">
+                        จ่ายออก
+                    </a>
+                    <a href="{{ route('inventory.receive.form') }}"
+                       class="px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700">
+                        + รับเข้าคลัง
+                    </a>
+                </div>
             </div>
 
             @if($activeLots->isEmpty())

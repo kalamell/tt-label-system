@@ -4,14 +4,35 @@
 
 @section('content')
     <div class="flex items-center justify-between mb-6">
-        <p class="text-sm text-gray-500">สินค้าทั้งหมด {{ $products->count() }} รายการ</p>
-        <a href="{{ route('products.create') }}"
-           class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-            </svg>
-            เพิ่มสินค้า
-        </a>
+        <div class="flex items-center gap-3">
+            <p class="text-sm text-gray-500">สินค้าทั้งหมด {{ $products->count() }} รายการ</p>
+            @if($search)
+                <span class="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                    ค้นหา: "{{ $search }}"
+                </span>
+                <a href="{{ route('products.index') }}" class="text-xs text-gray-400 hover:text-gray-600">× ล้าง</a>
+            @endif
+        </div>
+        <div class="flex items-center gap-3">
+            <form method="GET" action="{{ route('products.index') }}" class="flex items-center gap-2">
+                <div class="relative">
+                    <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                    <input type="text" name="q" value="{{ $search }}"
+                           placeholder="ค้นหาชื่อ, SKU, Seller SKU..."
+                           class="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-64">
+                </div>
+                <button type="submit" class="px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200">ค้นหา</button>
+            </form>
+            <a href="{{ route('products.create') }}"
+               class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                </svg>
+                เพิ่มสินค้า
+            </a>
+        </div>
     </div>
 
     @if($products->isEmpty())
