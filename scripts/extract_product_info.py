@@ -77,12 +77,14 @@ def main():
 
     results = {}
     for page_idx, page in enumerate(doc):
-        info = extract_product_info(page)
-        addr = extract_address_block(page)
-        if info or addr:
+        info      = extract_product_info(page)
+        addr      = extract_address_block(page)
+        key_fields = extract_key_fields(page)
+        if info or addr or key_fields:
             entry = info or {}
             if addr:
                 entry['recipient_address'] = addr
+            entry.update(key_fields)
             results[str(page_idx + 1)] = entry
 
     print(json.dumps(results, ensure_ascii=False))
@@ -291,6 +293,48 @@ def extract_product_info(page):
         'quantity':        total_qty or 1,
         'item_quantities': ' | '.join(str(q) for q in quantities),  # เช่น "1 | 2 | 1"
     }
+
+
+def extract_key_fields(page) -> dict:
+    """
+    Extract tracking_number, order_id, carrier จาก raw page text
+    ใช้เป็น fallback เมื่อ smalot/pdfparser อ่านหน้านั้นไม่ได้
+    """
+    text = page.get_text()
+    result = {}
+
+    # J&T tracking: 79 + 10 digits
+    m = re.search(r'\b(79\d{10})\b', text)
+    if m:
+        result['tracking_number'] = m.group(1)
+        result['carrier'] = 'JT'
+    else:
+        # Flash TikTok tracking: THT + 8-16 alphanumeric
+        m = re.search(r'\b(THT[A-Z0-9]{8,16})\b', text)
+        if m:
+            result['tracking_number'] = m.group(1)
+            result['carrier'] = 'FLASH'
+
+    # Order ID: 15-20 digits after "Order ID:"
+    m = re.search(r'Order\s*ID:\s*(\d{15,20})', text)
+    if m:
+        result['order_id'] = m.group(1)
+
+    # Service type: EZ or NDD
+    m = re.search(r'\b(EZ|NDD)\b', text)
+    if m:
+        result['service_type'] = m.group(1)
+
+    # Payment type
+    if re.search(r'\bCOD\b', text):
+        result['payment_type'] = 'COD'
+
+    # Shipping date: dd-mm-yyyyShipping Date:
+    m = re.search(r'(\d{2}-\d{2}-\d{4})Shipping\s*Date:', text)
+    if m:
+        result['shipping_date'] = m.group(1)
+
+    return result
 
 
 if __name__ == '__main__':

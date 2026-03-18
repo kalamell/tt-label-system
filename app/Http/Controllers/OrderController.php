@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Order;
 use App\Models\Product;
 use App\Services\PdfParserService;
+use App\Services\ShopeeParserService;
 use App\Services\LabelGeneratorService;
 use App\Services\FifoInventoryService;
 use App\Services\CustomerService;
@@ -15,6 +16,7 @@ class OrderController extends Controller
 {
     public function __construct(
         protected PdfParserService $pdfParser,
+        protected ShopeeParserService $shopeeParser,
         protected LabelGeneratorService $labelGenerator,
         protected FifoInventoryService $fifoService,
         protected CustomerService $customerService,
@@ -42,6 +44,10 @@ class OrderController extends Controller
 
         if ($carrier = $request->get('carrier')) {
             $query->where('carrier', $carrier);
+        }
+
+        if ($platform = $request->get('platform')) {
+            $query->where('platform', $platform);
         }
 
         if ($date = $request->get('date')) {
@@ -77,13 +83,20 @@ class OrderController extends Controller
     {
         $request->validate([
             'pdf_file' => 'required|file|mimes:pdf|max:51200',
+            'platform' => 'required|in:TIKTOK,SHOPEE',
         ]);
+
+        $platform = $request->input('platform', 'TIKTOK');
 
         // เก็บไฟล์ต้นฉบับ
         $originalPath = $request->file('pdf_file')->store('uploads/originals', 'public_files');
 
-        // อ่าน PDF
-        $parsedOrders = $this->pdfParser->parseFile(public_path($originalPath));
+        // อ่าน PDF ด้วย parser ที่ถูก platform
+        if ($platform === 'SHOPEE') {
+            $parsedOrders = $this->shopeeParser->parseFile(public_path($originalPath));
+        } else {
+            $parsedOrders = $this->pdfParser->parseFile(public_path($originalPath));
+        }
 
         if (empty($parsedOrders)) {
             return back()->with('error', 'ไม่พบข้อมูลออเดอร์ใน PDF กรุณาตรวจสอบไฟล์');
@@ -213,7 +226,7 @@ class OrderController extends Controller
                     $product = Product::create([
                         'name'       => $info['product_name'] ?: $key,
                         'sku'        => $sku,
-                        'seller_sku' => $info['seller_sku'] ?: null,
+                        'seller_sku' => $info['seller_sku'] ?: $sku,  // auto-set ถ้าไม่มี
                         'price'      => 0,
                         'min_stock'  => 5,
                         'is_active'  => true,
@@ -238,16 +251,29 @@ class OrderController extends Controller
                 $primaryProductSku = trim(explode('|', $parsed['product_sku'] ?? '')[0]);
                 $primaryKey        = $primarySellerSku ?: $primaryProductSku;
 
+                // Shopee fallback: PDF ไม่มี SKU → ใช้ key 'UNKNOWN_0' ที่ auto-create ไว้
+                if (!$primaryKey && ($parsed['platform'] ?? 'TIKTOK') === 'SHOPEE') {
+                    $primaryKey = 'UNKNOWN_0';
+                }
+
                 if ($primaryKey && isset($resolvedProducts[$primaryKey])) {
                     $primaryProductId = $resolvedProducts[$primaryKey];
                 } elseif ($primaryKey && isset($uniqueProducts[$primaryKey]['product_id'])) {
                     $primaryProductId = $uniqueProducts[$primaryKey]['product_id'];
                 }
 
+                // ถ้า seller_sku ว่าง (เช่น Shopee PDF ไม่มี SKU) ดึงจาก product ที่ link ไว้
+                $effectiveSellerSku = $parsed['seller_sku'] ?: null;
+                if (!$effectiveSellerSku && $primaryProductId) {
+                    $linkedProduct      = Product::find($primaryProductId);
+                    $effectiveSellerSku = $linkedProduct?->seller_sku ?? $linkedProduct?->sku;
+                }
+
                 $order = Order::create([
                     'order_id'           => $parsed['order_id'],
                     'carrier'            => $parsed['carrier']       ?? null,
                     'service_type'       => $parsed['service_type']  ?? null,
+                    'platform'           => $parsed['platform']      ?? 'TIKTOK',
                     'tracking_number'    => $parsed['tracking_number'],
                     'sorting_code'       => $parsed['sorting_code'],
                     'sorting_code_2'     => $parsed['sorting_code_2'],
@@ -268,7 +294,7 @@ class OrderController extends Controller
                     'product_id'         => $primaryProductId,
                     'product_name'       => $parsed['product_name'],
                     'product_sku'        => $parsed['product_sku'],
-                    'seller_sku'         => $parsed['seller_sku'],
+                    'seller_sku'         => $effectiveSellerSku,
                     'quantity'           => $parsed['quantity'],
                     'item_quantities'    => $parsed['item_quantities'] ?? null,
                     'original_pdf_path'  => $originalPath,
@@ -316,7 +342,7 @@ class OrderController extends Controller
             return back()->with('error', 'เกิดข้อผิดพลาด: ' . $e->getMessage());
         }
 
-        // Render PNG (best-effort)
+        // Render PNG (best-effort) — ทั้ง TikTok และ Shopee (PyMuPDF ใช้ได้กับทั้งคู่)
         if ($newOrders->isNotEmpty()) {
             try {
                 $this->labelGenerator->renderPagesFromPdf(public_path($originalPath), $newOrders);
@@ -346,7 +372,7 @@ class OrderController extends Controller
      */
     private function _buildFilteredQuery(Request $request)
     {
-        $query = Order::orderByRaw('COALESCE(shipping_date, created_at) DESC');
+        $query = Order::orderByRaw('COALESCE(orders.shipping_date, orders.created_at) DESC');
 
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
@@ -362,6 +388,9 @@ class OrderController extends Controller
         if ($carrier = $request->get('carrier')) {
             $query->where('carrier', $carrier);
         }
+        if ($platform = $request->get('platform')) {
+            $query->where('platform', $platform);
+        }
         if ($date = $request->get('date')) {
             $query->whereDate('shipping_date', $date);
         }
@@ -375,14 +404,27 @@ class OrderController extends Controller
     private function _resolveOrders(Request $request)
     {
         if ($request->boolean('select_all')) {
-            return $this->_buildFilteredQuery($request)->get();
+            return $this->_buildFilteredQuery($request)
+                ->leftJoin('products', 'orders.product_id', '=', 'products.id')
+                ->reorder()
+                ->orderBy('orders.quantity')
+                ->orderByRaw('COALESCE(products.seller_sku, products.sku)')
+                ->select('orders.*')
+                ->get();
         }
 
-        $request->validate([
-            'order_ids'   => 'required|array|min:1',
-            'order_ids.*' => 'exists:orders,id',
-        ]);
-        return Order::whereIn('id', $request->input('order_ids'))->get();
+        $ids = $request->input('order_ids', []);
+        if (empty($ids)) {
+            return null;
+        }
+
+        return Order::whereIn('orders.id', $ids)
+            ->leftJoin('products', 'orders.product_id', '=', 'products.id')
+            ->reorder()
+            ->orderBy('orders.quantity')
+            ->orderByRaw('COALESCE(products.seller_sku, products.sku)')
+            ->select('orders.*')
+            ->get();
     }
 
     /**
@@ -391,8 +433,11 @@ class OrderController extends Controller
     public function printBatch(Request $request)
     {
         $orders = $this->_resolveOrders($request);
-        $path   = $this->labelGenerator->generateBatchLabels($orders);
+        if (!$orders || $orders->isEmpty()) {
+            return back()->with('error', 'กรุณาเลือกออเดอร์อย่างน้อย 1 รายการ');
+        }
 
+        $path = $this->labelGenerator->generateBatchLabels($orders);
         return response()->download($path);
     }
 
@@ -402,8 +447,9 @@ class OrderController extends Controller
     public function downloadZip(Request $request)
     {
         $orders = $this->_resolveOrders($request);
-
-        $orders = Order::whereIn('id', $request->input('order_ids'))->get();
+        if (!$orders || $orders->isEmpty()) {
+            return back()->with('error', 'กรุณาเลือกออเดอร์อย่างน้อย 1 รายการ');
+        }
 
         // Generate label สำหรับ order ที่ยังไม่มีไฟล์
         foreach ($orders as $order) {
@@ -444,6 +490,10 @@ class OrderController extends Controller
         $orderIds = $request->boolean('select_all')
             ? $this->_buildFilteredQuery($request)->pluck('id')
             : collect($request->input('order_ids', []));
+
+        if ($orderIds->isEmpty()) {
+            return back()->with('error', 'กรุณาเลือกออเดอร์อย่างน้อย 1 รายการ');
+        }
 
         $orders = Order::with('transactions.inventoryLot')
             ->whereIn('id', $orderIds)

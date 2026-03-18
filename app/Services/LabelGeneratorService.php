@@ -129,6 +129,69 @@ class LabelGeneratorService
     // ============================================================
 
     /**
+     * วาดกล่องสีแดง + Seller SKU + Qty ใหญ่ ทับ product area ของ Shopee label
+     * footer ต้นฉบับ (Shopee Order No. + จำนวนรวม) ยังมองเห็น
+     */
+    protected function drawShopeeProductOverlay(\Imagick $img, Order $order): void
+    {
+        $width  = $img->getImageWidth();
+        $height = $img->getImageHeight();
+
+        $sellerSku = trim($order->seller_sku ?? $order->product_sku ?? '');
+        $qty       = $order->quantity ?? 1;
+        $fontBold  = $this->findFont(true);
+
+        // ===== กล่องขาว: เริ่มหลัง column header row (y≈52-53%) ก่อน data row (y≈54%) =====
+        // pixel analysis: header row=52%, data row=54% (อาจ wrap 2 บรรทัด ≈56-60%), footer=93%
+        // y1=54% → เริ่มทับ data row พอดี (column header "# ชื่อสินค้า..." ยังมองเห็น)
+        // y2=92% → ก่อน footer border ที่ 93%
+        $y1          = (int)($height * 0.530);
+        $y2          = (int)($height * 0.905);
+        $boxH        = $y2 - $y1;
+        $leftMargin  = (int)($width * 0.035);   // ซ้าย
+        $rightMargin = (int)($width * 0.032);   // ขวา — เข้ามาเพิ่มให้พอดีกรอบตาราง
+
+        // fill ขาว
+        $whiteBox = new \ImagickDraw();
+        $whiteBox->setFillColor(new \ImagickPixel('#ffffff'));
+        $whiteBox->setStrokeWidth(0);
+        $whiteBox->rectangle($leftMargin, $y1, $width - $rightMargin, $y2);
+        $img->drawImage($whiteBox);
+
+        // กรอบดำรอบกล่อง
+        $border = new \ImagickDraw();
+        $border->setFillColor(new \ImagickPixel('none'));
+        $border->setStrokeColor(new \ImagickPixel('#000000'));
+        $border->setStrokeWidth(2);
+        $border->rectangle($leftMargin, $y1, $width - $rightMargin, $y2);
+        $img->drawImage($border);
+
+        // ===== SKU + Qty — บรรทัดเดียวกัน ด้านบนกล่อง =====
+        $fontSize = max(24, (int)($boxH * 0.13));           // 13% ของ boxH
+        $textY    = $y1 + (int)($fontSize * 1.3);           // baseline ≈ 1 line จาก top
+
+        // SKU ซ้าย
+        $skuText = mb_substr(trim($sellerSku !== '' ? $sellerSku : '-'), 0, 12);
+        $skuDraw = new \ImagickDraw();
+        $skuDraw->setFillColor(new \ImagickPixel('#000000'));
+        $skuDraw->setGravity(\Imagick::GRAVITY_NORTHWEST);
+        if ($fontBold) $skuDraw->setFont($fontBold);
+        $skuDraw->setFontSize($fontSize);
+        $skuDraw->setTextAlignment(\Imagick::ALIGN_LEFT);
+        $img->annotateImage($skuDraw, $leftMargin + (int)($width * 0.020), $textY, 0, $skuText);
+
+        // Qty ขวา — ชิดกรอบขวา (เผื่อ ~1 ตัวอักษร padding)
+        $qtyDraw = new \ImagickDraw();
+        $qtyDraw->setFillColor(new \ImagickPixel('#000000'));
+        $qtyDraw->setGravity(\Imagick::GRAVITY_NORTHWEST);
+        if ($fontBold) $qtyDraw->setFont($fontBold);
+        $qtyDraw->setFontSize($fontSize);
+        $qtyDraw->setTextAlignment(\Imagick::ALIGN_LEFT);
+        $qtyX = $width - $rightMargin - (int)($fontSize * 0.9);  // ชิดกรอบขวา
+        $img->annotateImage($qtyDraw, $qtyX, $textY, 0, (string)$qty);
+    }
+
+    /**
      * หา font file ที่ใช้ได้จริงบน OS ปัจจุบัน
      * Imagick ต้องการ absolute path บน macOS (ไม่รับ font name เหมือน Linux)
      */
@@ -547,15 +610,6 @@ class LabelGeneratorService
         $filename = 'batch_labels_' . now()->format('Ymd_His') . '.pdf';
         $path     = public_path("labels/{$filename}");
 
-        // เรียง orders: ไม่มีตัวเลขท้ายก่อน → ตัวเลขน้อยไปมาก → prefix ตัวอักษร → qty น้อยไปมาก
-        $orders = $orders->sortBy(function ($order) {
-            $firstSku = trim(explode(' | ', $order->seller_sku ?? '')[0]);
-            preg_match('/(\d+)$/', $firstSku, $m);
-            $num    = isset($m[1]) ? (int)$m[1] : 0;
-            $prefix = isset($m[0]) ? substr($firstSku, 0, -strlen($m[0])) : $firstSku;
-            $qty    = (int)($order->quantity ?? 0);
-            return sprintf('%010d_%s_%010d', $num, strtolower($prefix), $qty);
-        })->values();
 
         // แยก orders ตามว่ามี pre-rendered PNG หรือเปล่า
         $withPng = $orders->filter(fn($o) =>
@@ -1018,15 +1072,21 @@ class LabelGeneratorService
      */
     protected function drawProductOverlayOnImage(\Imagick $img, Order $order): void
     {
+        // Shopee — กล่องสีแดงทับ product area แสดง SKU + Qty ใหญ่
+        if (($order->platform ?? 'TIKTOK') === 'SHOPEE') {
+            $this->drawShopeeProductOverlay($img, $order);
+            return;
+        }
+
         $width  = $img->getImageWidth();
         $height = $img->getImageHeight();
 
-        // ===== 1. โหลด footer.png และคำนวณขนาด =====
+        // ===== 1. โหลด footer.png และคำนวณขนาด (เฉพาะ TikTok — footer.png เป็นของ TikTok) =====
         $footerPngPath = public_path('footer.png');
         $footerImg     = null;
         $footerH       = 0;
 
-        if (file_exists($footerPngPath)) {
+        if (($order->platform ?? 'TIKTOK') !== 'SHOPEE' && file_exists($footerPngPath)) {
             $footerImg = new \Imagick($footerPngPath);
             $origW     = $footerImg->getImageWidth();
             $origH     = $footerImg->getImageHeight();
@@ -1250,7 +1310,8 @@ class LabelGeneratorService
 
     protected function generateWithTemplate(Order $order, string $outputPath): void
     {
-        $pdf = Pdf::loadView('labels.shipping-label', [
+        $view = $order->platform === 'SHOPEE' ? 'labels.shopee-label' : 'labels.shipping-label';
+        $pdf  = Pdf::loadView($view, [
             'order'       => $order,
             'hideProduct' => true,
         ]);

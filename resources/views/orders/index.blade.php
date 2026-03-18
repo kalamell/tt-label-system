@@ -21,6 +21,13 @@
                 <option value="">ทุกขนส่ง</option>
                 <option value="JT"    {{ request('carrier') == 'JT'    ? 'selected' : '' }}>J&amp;T Express</option>
                 <option value="FLASH" {{ request('carrier') == 'FLASH' ? 'selected' : '' }}>Flash Express</option>
+                <option value="SPX"   {{ request('carrier') == 'SPX'   ? 'selected' : '' }}>SPX Express</option>
+            </select>
+
+            <select name="platform" class="px-4 py-2 border border-gray-200 rounded-lg text-sm">
+                <option value="">ทุก Platform</option>
+                <option value="TIKTOK"  {{ request('platform') === 'TIKTOK'  ? 'selected' : '' }}>TikTok</option>
+                <option value="SHOPEE"  {{ request('platform') === 'SHOPEE'  ? 'selected' : '' }}>Shopee</option>
             </select>
 
             <input type="date" name="date" value="{{ request('date') }}"
@@ -30,7 +37,7 @@
                 ค้นหา
             </button>
 
-            @if(request()->hasAny(['search', 'status', 'date']))
+            @if(request()->hasAny(['search', 'status', 'date', 'carrier', 'platform']))
                 <a href="{{ route('orders.index') }}" class="text-sm text-gray-500 hover:text-gray-700">ล้าง</a>
             @endif
         </form>
@@ -91,10 +98,10 @@
 
     {{-- Select-All Banner (ซ่อนไว้ก่อน) --}}
     <div id="select-all-banner" class="hidden mb-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center gap-3 text-sm">
-        <span class="text-blue-700">เลือก <strong>{{ $orders->total() }}</strong> รายการในหน้านี้แล้ว</span>
+        <span class="text-blue-700">เลือก <strong>{{ $orders->count() }}</strong> รายการในหน้านี้แล้ว — ยังมีอีก {{ number_format($orders->total() - $orders->count()) }} รายการในหน้าอื่น</span>
         <button type="button" onclick="selectAllPages()"
                 class="px-3 py-1 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700">
-            เลือกทั้งหมด {{ number_format($orders->total()) }} รายการ
+            เลือกทั้งหมด {{ number_format($orders->total()) }} รายการ (ทุกหน้า)
         </button>
         <button type="button" onclick="clearSelectAll()" class="text-blue-400 hover:text-blue-600 text-xs ml-auto">ยกเลิก</button>
     </div>
@@ -110,7 +117,7 @@
     <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {{-- Batch print form --}}
         <form id="batch-form" action="{{ route('orders.print.batch') }}" method="POST">
-            @foreach(request()->only(['search','status','date','carrier']) as $key => $val)
+            @foreach(request()->only(['search','status','date','carrier','platform']) as $key => $val)
                 @if($val)<input type="hidden" name="{{ $key }}" value="{{ $val }}">@endif
             @endforeach
             @csrf
@@ -120,11 +127,13 @@
                         <th class="px-4 py-3 text-left">
                             <input type="checkbox" id="check-all" class="rounded border-gray-300">
                         </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Platform</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ขนส่ง</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tracking</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order ID</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ผู้รับ</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ปลายทาง</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Qty</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">จ่าย</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lot</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">PNG</th>
@@ -136,14 +145,23 @@
                     @forelse($orders as $order)
                         <tr class="hover:bg-gray-50">
                             <td class="px-4 py-3">
-                                <input type="checkbox" name="order_ids[]" value="{{ $order->id }}"
+                                <input type="checkbox" value="{{ $order->id }}"
                                        class="order-check rounded border-gray-300">
+                            </td>
+                            <td class="px-4 py-3">
+                                @if($order->platform === 'SHOPEE')
+                                    <span class="px-2 py-0.5 bg-orange-500 text-white rounded text-xs font-medium">Shopee</span>
+                                @else
+                                    <span class="px-2 py-0.5 bg-black text-white rounded text-xs font-medium">TikTok</span>
+                                @endif
                             </td>
                             <td class="px-4 py-3">
                                 @if($order->carrier === 'FLASH')
                                     <span class="px-2 py-0.5 bg-orange-100 text-orange-700 rounded text-xs font-medium">Flash</span>
                                 @elseif($order->carrier === 'JT')
                                     <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium">J&amp;T</span>
+                                @elseif($order->carrier === 'SPX')
+                                    <span class="px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs font-medium">SPX</span>
                                 @else
                                     <span class="text-gray-300 text-xs">—</span>
                                 @endif
@@ -161,6 +179,9 @@
                             <td class="px-4 py-3">
                                 <p class="text-gray-600">{{ $order->recipient_district }}</p>
                                 <p class="text-xs text-gray-400">{{ $order->recipient_province }} {{ $order->recipient_zipcode }}</p>
+                            </td>
+                            <td class="px-4 py-3 text-center">
+                                <span class="text-sm font-semibold text-gray-800">{{ $order->quantity ?? 1 }}</span>
                             </td>
                             <td class="px-4 py-3">
                                 @if($order->payment_type == 'COD')
@@ -211,7 +232,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="11" class="px-4 py-12 text-center text-gray-400">
+                            <td colspan="12" class="px-4 py-12 text-center text-gray-400">
                                 ยังไม่มีออเดอร์ — <a href="{{ route('orders.upload.form') }}" class="text-blue-600 hover:underline">Upload PDF เลย</a>
                             </td>
                         </tr>
@@ -224,7 +245,7 @@
     {{-- Hidden form for ZIP download --}}
     <form id="zip-form" action="{{ route('orders.download.zip') }}" method="POST" class="hidden">
         @csrf
-        @foreach(request()->only(['search','status','date','carrier']) as $key => $val)
+        @foreach(request()->only(['search','status','date','carrier','platform']) as $key => $val)
             @if($val)<input type="hidden" name="{{ $key }}" value="{{ $val }}">@endif
         @endforeach
     </form>
@@ -232,7 +253,7 @@
     {{-- Hidden form for batch delete --}}
     <form id="delete-form" action="{{ route('orders.delete.batch') }}" method="POST" class="hidden">
         @csrf
-        @foreach(request()->only(['search','status','date','carrier']) as $key => $val)
+        @foreach(request()->only(['search','status','date','carrier','platform']) as $key => $val)
             @if($val)<input type="hidden" name="{{ $key }}" value="{{ $val }}">@endif
         @endforeach
     </form>
@@ -320,20 +341,26 @@
     }
 
     function _injectOrderIds(form) {
-        form.querySelectorAll('input[name="order_ids[]"], input[name="select_all"]').forEach(el => el.remove());
+        // เก็บค่า checked ก่อน (ต้องทำก่อนลบ)
+        const checkedIds = Array.from(document.querySelectorAll('.order-check:checked')).map(cb => cb.value);
+
+        // ลบเฉพาะ injected hidden inputs ที่ใส่ไว้ก่อนหน้า (ไม่แตะ checkbox จริง)
+        form.querySelectorAll('input[data-injected]').forEach(el => el.remove());
 
         if (_selectAllPages) {
             const input = document.createElement('input');
             input.type  = 'hidden';
             input.name  = 'select_all';
             input.value = '1';
+            input.dataset.injected = '1';
             form.appendChild(input);
         } else {
-            document.querySelectorAll('.order-check:checked').forEach(cb => {
+            checkedIds.forEach(id => {
                 const input = document.createElement('input');
                 input.type  = 'hidden';
                 input.name  = 'order_ids[]';
-                input.value = cb.value;
+                input.value = id;
+                input.dataset.injected = '1';
                 form.appendChild(input);
             });
         }

@@ -113,27 +113,9 @@
 
         /* Product Section */
         .product-section {
-            padding: 1mm 2mm;
+            padding: 2mm 2mm;
             border-bottom: 0.5px solid #000;
-            flex: 1;
         }
-        .product-header {
-            display: flex;
-            font-size: 6.5pt;
-            color: #666;
-            border-bottom: 0.5px solid #ddd;
-            padding-bottom: 0.5mm;
-            margin-bottom: 0.5mm;
-        }
-        .product-header span:first-child { flex: 3; }
-        .product-header span { flex: 1; }
-        .product-data {
-            display: flex;
-            font-size: 7pt;
-            align-items: center;
-        }
-        .product-data span:first-child { flex: 3; }
-        .product-data span { flex: 1; }
         .lot-display {
             font-size: 28pt;
             font-weight: bold;
@@ -142,7 +124,9 @@
             line-height: 1;
             margin: 1mm 0;
         }
-        .qty-total { text-align: right; font-size: 7pt; }
+        .sku-display { font-size: 24pt; font-weight: bold; text-align: center; letter-spacing: 1px; padding: 1mm 0; color: #222; }
+        .qty-big { font-size: 52pt; font-weight: bold; text-align: center; line-height: 1; }
+        .qty-unit { font-size: 16pt; font-weight: bold; }
 
         /* Footer */
         .footer {
@@ -151,6 +135,7 @@
             justify-content: space-between;
             font-size: 7pt;
             border-top: 0.5px solid #000;
+            margin-top: auto;
         }
     </style>
 </head>
@@ -159,14 +144,13 @@
 
     {{-- Header --}}
     <div class="header">
-        <span class="header-brand">TikTok Shop</span>
-        @if($order->carrier === 'FLASH')
-            <span>Flash Express</span>
-            <span class="header-service">{{ $order->service_type ?? 'NDD' }}</span>
-        @else
-            <span>J&amp;T Express</span>
-            <span class="header-service">{{ $order->service_type ?? 'EZ' }}</span>
-        @endif
+        <span class="header-brand">{{ $order->platform === 'SHOPEE' ? 'Shopee' : 'TikTok Shop' }}</span>
+        @php
+            $carrierNames = ['JT' => 'J&T Express', 'FLASH' => 'Flash Express', 'SPX' => 'SPX Express'];
+            $carrierName = $carrierNames[$order->carrier] ?? ($order->carrier ?? 'Express');
+        @endphp
+        <span>{{ $carrierName }}</span>
+        <span class="header-service">{{ $order->service_type ?? '' }}</span>
     </div>
 
     {{-- Barcode --}}
@@ -214,27 +198,19 @@
         <span>{{ $order->shipping_date?->format('d-m-Y') }}</span>
     </div>
 
-    {{-- Product Section — ซ่อนชื่อสินค้า แสดง Lot Number --}}
+    {{-- Product Section — ซ่อนชื่อ แสดง SKU + Qty ใหญ่ + Lot --}}
     <div class="product-section">
-        <div class="product-header">
-            <span>Product Name</span>
-            <span>SKU</span>
-            <span>Seller SKU</span>
-            <span>Qty</span>
-        </div>
-        <div class="product-data">
-            <span>-, -</span>
-            <span></span>
-            <span></span>
-            <span>{{ $order->quantity }}</span>
+        <div class="sku-display">{{ $order->seller_sku ?? $order->product_sku ?? '-' }}</div>
+        <div style="display:flex; align-items:baseline; justify-content:center; gap:4mm;">
+            <div class="qty-big">{{ $order->quantity }}</div>
+            <div class="qty-unit">ชิ้น</div>
         </div>
         <div class="lot-display">{{ $order->assigned_lot }}</div>
-        <div class="qty-total">Qty Total: {{ $order->quantity }}</div>
     </div>
 
     {{-- Footer --}}
     <div class="footer">
-        <span><strong>TikTok Shop</strong></span>
+        <span><strong>{{ $order->platform === 'SHOPEE' ? 'Shopee' : 'TikTok Shop' }}</strong></span>
         <span>Order ID: {{ $order->order_id }}</span>
     </div>
 

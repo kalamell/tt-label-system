@@ -1,17 +1,35 @@
 @extends('layouts.app')
 @section('title', 'Upload PDF')
-@section('page-title', 'Upload PDF Label จาก TikTok Shop')
+@section('page-title', 'Upload PDF Label')
 
 @section('content')
     <div class="max-w-2xl">
         <div class="bg-white rounded-xl border border-gray-200 p-6">
             <h3 class="text-lg font-semibold text-gray-800 mb-2">นำเข้า Label จาก PDF</h3>
             <p class="text-sm text-gray-500 mb-6">
-                อัพโหลดไฟล์ PDF ที่ดาวน์โหลดจาก TikTok Shop → ระบบจะอ่านข้อมูลอัตโนมัติ → ตัดสต๊อก FIFO → พร้อมพิมพ์ Label (ซ่อนชื่อสินค้า)
+                อัพโหลดไฟล์ PDF จาก TikTok Shop หรือ Shopee → ระบบอ่านข้อมูลอัตโนมัติ → ตัดสต๊อก FIFO → พิมพ์ Label (ซ่อนชื่อสินค้า)
             </p>
 
             <form action="{{ route('orders.upload') }}" method="POST" enctype="multipart/form-data" class="space-y-5">
                 @csrf
+
+                {{-- Platform Selector --}}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">เลือก Platform</label>
+                    <div class="flex gap-4">
+                        <label id="label-tiktok"
+                               class="flex items-center gap-3 px-4 py-3 border-2 rounded-xl cursor-pointer transition-colors border-black bg-black text-white">
+                            <input type="radio" name="platform" value="TIKTOK" class="hidden" checked>
+                            <span class="text-sm font-semibold">TikTok Shop</span>
+                        </label>
+
+                        <label id="label-shopee"
+                               class="flex items-center gap-3 px-4 py-3 border-2 rounded-xl cursor-pointer transition-colors border-gray-200 bg-white text-gray-700 hover:border-orange-400">
+                            <input type="radio" name="platform" value="SHOPEE" class="hidden">
+                            <span class="text-sm font-semibold">Shopee</span>
+                        </label>
+                    </div>
+                </div>
 
                 {{-- Upload PDF --}}
                 <div>
@@ -142,6 +160,32 @@
         const dropEl = document.getElementById('drop-zone');
         dropEl.classList.remove('border-red-400', 'bg-red-50');
         dropEl.classList.add('border-gray-200');
+    });
+
+    // Platform selector toggle
+    const radios = document.querySelectorAll('input[name="platform"]');
+    const lblTiktok = document.getElementById('label-tiktok');
+    const lblShopee = document.getElementById('label-shopee');
+
+    radios.forEach(radio => {
+        radio.addEventListener('change', function () {
+            if (this.value === 'TIKTOK') {
+                lblTiktok.className = 'flex items-center gap-3 px-4 py-3 border-2 rounded-xl cursor-pointer transition-colors border-black bg-black text-white';
+                lblShopee.className = 'flex items-center gap-3 px-4 py-3 border-2 rounded-xl cursor-pointer transition-colors border-gray-200 bg-white text-gray-700 hover:border-orange-400';
+            } else {
+                lblShopee.className = 'flex items-center gap-3 px-4 py-3 border-2 rounded-xl cursor-pointer transition-colors border-orange-500 bg-orange-500 text-white';
+                lblTiktok.className = 'flex items-center gap-3 px-4 py-3 border-2 rounded-xl cursor-pointer transition-colors border-gray-200 bg-white text-gray-700 hover:border-gray-400';
+            }
+        });
+    });
+
+    // Click on label triggers radio change
+    [lblTiktok, lblShopee].forEach(lbl => {
+        lbl.addEventListener('click', function () {
+            const radio = this.querySelector('input[type="radio"]');
+            radio.checked = true;
+            radio.dispatchEvent(new Event('change'));
+        });
     });
 </script>
 @endpush

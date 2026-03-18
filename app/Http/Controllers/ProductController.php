@@ -70,4 +70,21 @@ class ProductController extends Controller
         return redirect()->route('products.index')
             ->with('success', 'อัพเดทสินค้าสำเร็จ');
     }
+
+    public function destroy(Product $product)
+    {
+        $name = $product->name;
+        $product->delete();
+        return back()->with('success', "ลบสินค้า \"{$name}\" สำเร็จ");
+    }
+
+    public function bulkDestroy(Request $request)
+    {
+        $ids = $request->input('ids', []);
+        if (empty($ids)) {
+            return back()->with('error', 'ไม่ได้เลือกสินค้า');
+        }
+        $count = Product::whereIn('id', $ids)->delete();
+        return back()->with('success', "ลบสินค้า {$count} รายการสำเร็จ");
+    }
 }

@@ -41,14 +41,13 @@
         <div class="label-page">
             <div class="label">
                 <div class="header">
-                    <span style="font-weight:bold">TikTok Shop</span>
-                    @if($order->carrier === 'FLASH')
-                        <span>Flash Express</span>
-                        <span style="font-size:16px; font-weight:bold">{{ $order->service_type ?? 'NDD' }}</span>
-                    @else
-                        <span>J&amp;T Express</span>
-                        <span style="font-size:16px; font-weight:bold">{{ $order->service_type ?? 'EZ' }}</span>
-                    @endif
+                    <span style="font-weight:bold">{{ $order->platform === 'SHOPEE' ? 'Shopee' : 'TikTok Shop' }}</span>
+                    @php
+                        $carrierNames = ['JT' => 'J&T Express', 'FLASH' => 'Flash Express', 'SPX' => 'SPX Express'];
+                        $carrierName = $carrierNames[$order->carrier] ?? ($order->carrier ?? 'Express');
+                    @endphp
+                    <span>{{ $carrierName }}</span>
+                    <span style="font-size:16px; font-weight:bold">{{ $order->service_type ?? '' }}</span>
                 </div>
 
                 <div class="barcode-section">
@@ -85,19 +84,49 @@
                     <span>{{ $order->shipping_date?->format('d-m-Y') }}</span>
                 </div>
 
-                <div style="padding:4px 5px; border-bottom:1px solid #ccc;">
-                    <table style="width:100%; font-size:9px;">
-                        <tr><th style="text-align:left">Product Name</th><th>SKU</th><th>Qty</th></tr>
-                        <tr><td>-, -</td><td></td><td>{{ $order->quantity }}</td></tr>
-                    </table>
-                    <div class="lot-display">{{ $order->assigned_lot ?? '03/100' }}</div>
-                    <div style="text-align:right; font-size:9px;">Qty Total: {{ $order->quantity }}</div>
-                </div>
-
-                <div class="meta" style="border-bottom:none;">
-                    <span style="font-weight:bold">TikTok Shop</span>
-                    <span>Order ID: {{ $order->order_id }}</span>
-                </div>
+                @if($order->platform === 'SHOPEE')
+                    {{-- Shopee: product header + red box + green qty footer --}}
+                    <div style="display:flex; padding:1px 5px; background:#f5f5f5; border-bottom:0.5px solid #ccc; font-size:7px; color:#444; font-weight:bold;">
+                        <span style="width:14px;">#</span>
+                        <span style="flex:2;">ชื่อสินค้า</span>
+                        <span style="flex:1.5;">ตัวเลือกสินค้า</span>
+                        <span style="width:20px; text-align:right;">จำนวน</span>
+                    </div>
+                    <div style="background:#e53935; flex:1; min-height:18px; display:flex; align-items:center; justify-content:center;">
+                        <div style="color:#fff; text-align:center; line-height:1.2;">
+                            <div style="font-size:11px; font-weight:bold; letter-spacing:1px;">{{ $order->seller_sku ?? $order->product_sku ?? '-' }}</div>
+                            <div style="font-size:28px; font-weight:bold; line-height:1;">{{ $order->quantity }}</div>
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; padding:3px 5px; border-top:0.5px solid #000; gap:4px;">
+                        <div style="flex:1; font-size:8px;">
+                            <strong>Shopee Order No.</strong><br>{{ $order->order_id }}
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="font-size:7px; color:#555;">จำนวนรวม</div>
+                            <div style="background:#43a047; color:#fff; font-size:20px; font-weight:bold; padding:0 5px; border-radius:2px; line-height:1.2;">{{ $order->quantity }}</div>
+                        </div>
+                    </div>
+                @else
+                    {{-- TikTok: SKU + Qty ใหญ่ + batch counter N/Total --}}
+                    <div style="padding:4px 5px; border-bottom:1px solid #ccc; text-align:center;">
+                        <div style="font-size:16px; font-weight:bold; letter-spacing:1px;">
+                            {{ $order->seller_sku ?? $order->product_sku ?? '-' }}
+                        </div>
+                        <div style="display:flex; justify-content:center; align-items:baseline; gap:6px;">
+                            <span style="font-size:40px; font-weight:bold; line-height:1;">{{ $order->quantity }}</span>
+                            <span style="font-size:14px; font-weight:bold;">ชิ้น</span>
+                            <span style="font-size:18px; font-weight:bold; color:#555;">
+                                {{ $loop->iteration }}/{{ $loop->count }}
+                            </span>
+                        </div>
+                        <div class="lot-display">{{ $order->assigned_lot ?? '' }}</div>
+                    </div>
+                    <div class="meta" style="border-bottom:none;">
+                        <span style="font-weight:bold">TikTok Shop</span>
+                        <span>Order ID: {{ $order->order_id }}</span>
+                    </div>
+                @endif
             </div>
         </div>
     @endforeach

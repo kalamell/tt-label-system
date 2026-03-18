@@ -38,26 +38,67 @@ class PdfParserService
         ini_set('memory_limit', '512M');
 
         try {
-            $pdf = $this->parser->parseFile($filePath);
-            $pages = $pdf->getPages();
-            $orders = [];
-
-            // ดึง product info ด้วย PyMuPDF (แม่นยำกว่า smalot — รู้ column x-position)
+            // ดึง product info + key fields ด้วย PyMuPDF ก่อน (ครบทุกหน้า)
             $productInfoByPage = $this->extractProductInfoWithPython($filePath);
 
-            $lastOrderKey = null;  // track index ของ order ล่าสุดสำหรับ merge continuation pages
+            // Build smalot text map เฉพาะหน้าที่ smalot อ่านได้ (อาจได้ไม่ครบทุกหน้า)
+            $smalotTexts = [];
+            try {
+                $pdf   = $this->parser->parseFile($filePath);
+                $pages = $pdf->getPages();
+                foreach ($pages as $idx => $page) {
+                    try {
+                        $smalotTexts[$idx + 1] = $page->getText();
+                    } catch (\Throwable) {
+                        $smalotTexts[$idx + 1] = '';
+                    }
+                }
+                unset($pdf, $pages);
+            } catch (\Throwable) {
+                // smalot ล้มเหลวทั้งไฟล์ → ยังใช้ Python ได้
+            }
 
-            foreach ($pages as $index => $page) {
-                $text    = $page->getText();
-                $parsed  = $this->parseLabelText($text);
-                $pageNum = (string)($index + 1);
-                $pyInfo  = $productInfoByPage[$pageNum] ?? null;
+            // จำนวนหน้าจริง: ใช้ Python เป็น source of truth (ครบกว่า smalot)
+            $totalPages = !empty($productInfoByPage)
+                ? max(array_map('intval', array_keys($productInfoByPage)))
+                : count($smalotTexts);
+
+            $orders       = [];
+            $lastOrderKey = null;
+
+            for ($pageNum = 1; $pageNum <= $totalPages; $pageNum++) {
+                $text   = $smalotTexts[$pageNum] ?? '';
+                $parsed = $this->parseLabelText($text);
+                $pyInfo = $productInfoByPage[(string)$pageNum] ?? null;
+
+                // ============================================================
+                // Fallback: smalot อ่าน tracking ไม่ได้ → ใช้ PyMuPDF
+                // สาเหตุ: TikTok PDF 1.5+ compressed object streams
+                // ============================================================
+                if (empty($parsed['tracking_number']) && !empty($pyInfo['tracking_number'])) {
+                    $parsed['tracking_number'] = $pyInfo['tracking_number'];
+                }
+                if (empty($parsed['order_id']) && !empty($pyInfo['order_id'])) {
+                    $parsed['order_id'] = $pyInfo['order_id'];
+                }
+                if (empty($parsed['carrier']) && !empty($pyInfo['carrier'])) {
+                    $parsed['carrier'] = $pyInfo['carrier'];
+                }
+                if (empty($parsed['service_type']) && !empty($pyInfo['service_type'])) {
+                    $parsed['service_type'] = $pyInfo['service_type'];
+                }
+                if (empty($parsed['shipping_date']) && !empty($pyInfo['shipping_date'])) {
+                    $parsed['shipping_date'] = $pyInfo['shipping_date'];
+                }
+                if (($parsed['payment_type'] ?? 'PREPAID') === 'PREPAID' && !empty($pyInfo['payment_type'])) {
+                    $parsed['payment_type'] = $pyInfo['payment_type'];
+                }
 
                 if ($parsed && !empty($parsed['tracking_number'])) {
                     // ======================================================
                     // หน้าปกติ: มี tracking number → สร้าง order entry ใหม่
                     // ======================================================
-                    $parsed['page_number'] = $index + 1;
+                    $parsed['page_number'] = $pageNum;
 
                     // Merge product info จาก PyMuPDF (แม่นยำกว่า smalot — รู้ column x-position)
                     if ($pyInfo) {
@@ -118,9 +159,6 @@ class PdfParserService
                 // คืน memory หลังอ่านแต่ละหน้า
                 unset($text, $parsed);
             }
-
-            // คืน object หลัก
-            unset($pdf, $pages);
 
         } finally {
             ini_set('memory_limit', $prevMemoryLimit);
@@ -194,6 +232,7 @@ class PdfParserService
         $data = [
             'carrier' => null,
             'service_type' => null,
+            'platform' => 'TIKTOK',
             'tracking_number' => null,
             'order_id' => null,
             'sorting_code' => null,
@@ -241,7 +280,7 @@ class PdfParserService
         }
 
         // ============================================================
-        // Order ID (18 หลัก)
+        // Order ID (15-20 หลัก)
         // ============================================================
         if (preg_match('/Order\s*ID:\s*(\d{15,20})/', $text, $m)) {
             $data['order_id'] = $m[1];
