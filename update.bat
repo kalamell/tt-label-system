@@ -4,12 +4,28 @@
 :: วิธีใช้: ดับเบิลคลิกไฟล์นี้
 :: =============================================================
 
-set TOKEN=
+set TOKEN=ใส่_TOKEN_ตรงนี้
+
+:: ไปที่โฟลเดอร์ของไฟล์นี้เสมอ (สำคัญมาก)
+cd /d %~dp0
+
 set REPO=https://%TOKEN%@github.com/kalamell/tt-label-system.git
 
 echo ==============================
 echo  TikTok Label - Update System
 echo ==============================
+echo  Folder: %CD%
+echo ==============================
+
+:: ตรวจสอบ token
+if "%TOKEN%"=="ใส่_TOKEN_ตรงนี้" (
+    echo.
+    echo [X] ยังไม่ได้ใส่ TOKEN
+    echo     เปิดไฟล์นี้ด้วย Notepad แล้วแก้บรรทัด set TOKEN=
+    echo.
+    pause
+    exit /b 1
+)
 
 :: ตรวจสอบ git
 where git >nul 2>&1
@@ -33,7 +49,14 @@ git remote set-url origin %REPO%
 echo.
 echo [1/2] Pulling latest code...
 git pull origin main
-echo Done
+if %ERRORLEVEL% neq 0 (
+    echo.
+    echo [X] Pull ไม่สำเร็จ -- ตรวจสอบ TOKEN หรือการเชื่อมต่อ
+    git remote set-url origin https://github.com/kalamell/tt-label-system.git
+    pause
+    exit /b 1
+)
+echo ✓ Done
 
 :: ลบ token ออกจาก remote (ความปลอดภัย)
 git remote set-url origin https://github.com/kalamell/tt-label-system.git
