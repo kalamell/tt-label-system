@@ -33,6 +33,3 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 
-# Deploy scripts (contains token)
-update.sh
-update.bat
