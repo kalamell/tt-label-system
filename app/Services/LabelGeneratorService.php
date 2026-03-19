@@ -149,7 +149,7 @@ class LabelGeneratorService
         $y2          = (int)($height * 0.905);
         $boxH        = $y2 - $y1;
         $leftMargin  = (int)($width * 0.035);   // ซ้าย
-        $rightMargin = (int)($width * 0.032);   // ขวา — เข้ามาเพิ่มให้พอดีกรอบตาราง
+        $rightMargin = (int)($width * 0.045);   // ขวา — เข้ามาเพิ่มให้พอดีกรอบตาราง
 
         // fill ขาว
         $whiteBox = new \ImagickDraw();
@@ -158,13 +158,6 @@ class LabelGeneratorService
         $whiteBox->rectangle($leftMargin, $y1, $width - $rightMargin, $y2);
         $img->drawImage($whiteBox);
 
-        // กรอบดำรอบกล่อง
-        $border = new \ImagickDraw();
-        $border->setFillColor(new \ImagickPixel('none'));
-        $border->setStrokeColor(new \ImagickPixel('#000000'));
-        $border->setStrokeWidth(2);
-        $border->rectangle($leftMargin, $y1, $width - $rightMargin, $y2);
-        $img->drawImage($border);
 
         // ===== SKU + Qty — บรรทัดเดียวกัน ด้านบนกล่อง =====
         $fontSize = max(24, (int)($boxH * 0.13));           // 13% ของ boxH

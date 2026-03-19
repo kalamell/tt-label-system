@@ -301,10 +301,20 @@ class ShopeeParserService
             if (!empty($prodLines)) {
                 $data['product_name'] = $prodLines[0];
 
-                // Seller SKU: ตัวอักษรก่อน space แรก เช่น "LH50 แผ่นทดสอบ..." → "LH50"
-                $firstSpace = mb_strpos($prodLines[0], ' ');
-                if ($firstSpace !== false && $firstSpace > 0) {
-                    $data['seller_sku'] = mb_substr($prodLines[0], 0, $firstSpace);
+                // Seller SKU logic:
+                //   token แรกเป็นตัวอักษรล้วน AND < 4 ตัว → เอา token ถัดไปมาต่อ (ไม่มี space)
+                //   เช่น "1 LH 50 ชิ้น..."   → "LH"(2) < 4 → "LH" + "50" = "LH50"
+                //        "1 ABCD 4 ชิ้น..."  → "ABCD"(4) ≥ 4 → stop → "ABCD"
+                //        "1 HCG10 ยาทา..."   → "HCG10" มีตัวเลข → stop → "HCG10"
+                $lineForSku = preg_replace('/^\d+\s+/', '', $prodLines[0]);
+                $tokens     = preg_split('/\s+/', trim($lineForSku));
+                $sku        = $tokens[0] ?? '';
+                if (preg_match('/^[A-Za-z]+$/', $sku) && mb_strlen($sku) < 4 && isset($tokens[1])) {
+                    $sku .= $tokens[1];
+                }
+                $sku = trim($sku);
+                if ($sku !== '' && mb_strlen($sku) <= 20) {
+                    $data['seller_sku'] = $sku;
                 }
             }
         }
