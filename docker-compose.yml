@@ -21,6 +21,7 @@ services:
     volumes:
       - ./public/uploads:/var/www/app/public/uploads
       - ./public/labels:/var/www/app/public/labels
+      - ./scripts:/var/www/app/scripts
     depends_on:
       db:
         condition: service_healthy
@@ -33,6 +34,8 @@ services:
       MYSQL_USER: tiktok
       MYSQL_PASSWORD: secret123
       MYSQL_ROOT_PASSWORD: root123
+    ports:
+      - "3307:3306"
     volumes:
       - ./docker/mysql:/var/lib/mysql
     healthcheck:
