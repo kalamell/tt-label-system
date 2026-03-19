@@ -600,6 +600,9 @@ class LabelGeneratorService
      */
     public function generateBatchLabels(Collection $orders): string
     {
+        @ini_set('memory_limit', '512M');
+        @set_time_limit(0);
+
         $filename = 'batch_labels_' . now()->format('Ymd_His') . '.pdf';
         $path     = public_path("labels/{$filename}");
 
@@ -670,6 +673,36 @@ class LabelGeneratorService
         }
 
         return $path;
+    }
+
+    // ============================================================
+    // PDF Chunk Merge Helper
+    // ============================================================
+
+    /**
+     * Merge หลาย PDF chunk (ที่ generate จาก TCPDF) เป็นไฟล์เดียว
+     * ใช้ FPDI Tcpdf variant — รองรับ PDF ที่ TCPDF สร้าง (PDF 1.4)
+     */
+    protected function mergePdfChunks(array $chunkPaths, string $outputPath): void
+    {
+        $pdf = new \setasign\Fpdi\Tcpdf\Fpdi('P', 'mm', [105.13, 148.17]);
+        $pdf->setPrintHeader(false);
+        $pdf->setPrintFooter(false);
+        $pdf->SetMargins(0, 0, 0);
+        $pdf->SetAutoPageBreak(false);
+
+        foreach ($chunkPaths as $file) {
+            if (!file_exists($file)) continue;
+            $pageCount = $pdf->setSourceFile($file);
+            for ($i = 1; $i <= $pageCount; $i++) {
+                $tplId = $pdf->importPage($i);
+                $size  = $pdf->getTemplateSize($tplId);
+                $pdf->AddPage($size['orientation'] ?? 'P', [$size['width'], $size['height']]);
+                $pdf->useTemplate($tplId, 0, 0, $size['width'], $size['height']);
+            }
+        }
+
+        $pdf->Output($outputPath, 'F');
     }
 
     // ============================================================
@@ -797,6 +830,26 @@ class LabelGeneratorService
      */
     protected function batchWithPng(Collection $orders, string $outputPath): void
     {
+        $chunks = $orders->chunk(30);
+
+        if ($chunks->count() === 1) {
+            $this->_renderPngChunk($orders, $outputPath);
+            return;
+        }
+
+        $tempFiles = [];
+        foreach ($chunks as $chunk) {
+            $tmp = sys_get_temp_dir() . '/tt_chunk_' . uniqid() . '.pdf';
+            $this->_renderPngChunk(collect($chunk), $tmp);
+            $tempFiles[] = $tmp;
+        }
+
+        $this->mergePdfChunks($tempFiles, $outputPath);
+        foreach ($tempFiles as $f) @unlink($f);
+    }
+
+    protected function _renderPngChunk(Collection $orders, string $outputPath): void
+    {
         $pdf = new \TCPDF('P', 'mm', [105.13, 148.17], true, 'UTF-8', false);
         $pdf->setPrintHeader(false);
         $pdf->setPrintFooter(false);
@@ -815,6 +868,7 @@ class LabelGeneratorService
 
             $pdf->AddPage('P', [105.13, 148.17]);
             $pdf->Image('@' . $pngBlob, 0, 0, 105.13, 148.17, 'PNG');
+            unset($pngBlob);
         }
 
         $pdf->Output($outputPath, 'F');
@@ -824,6 +878,26 @@ class LabelGeneratorService
      * Batch แบบผสม: บาง order มี PNG, บางไม่มี
      */
     protected function batchMixed(Collection $orders, string $outputPath): void
+    {
+        $chunks = $orders->chunk(30);
+
+        if ($chunks->count() === 1) {
+            $this->_renderMixedChunk($orders, $outputPath);
+            return;
+        }
+
+        $tempFiles = [];
+        foreach ($chunks as $chunk) {
+            $tmp = sys_get_temp_dir() . '/tt_chunk_' . uniqid() . '.pdf';
+            $this->_renderMixedChunk(collect($chunk), $tmp);
+            $tempFiles[] = $tmp;
+        }
+
+        $this->mergePdfChunks($tempFiles, $outputPath);
+        foreach ($tempFiles as $f) @unlink($f);
+    }
+
+    protected function _renderMixedChunk(Collection $orders, string $outputPath): void
     {
         $pdf = new \TCPDF('P', 'mm', [105.13, 148.17], true, 'UTF-8', false);
         $pdf->setPrintHeader(false);
@@ -854,6 +928,7 @@ class LabelGeneratorService
             $pdf->AddPage('P', [105.13, 148.17]);
             if ($pngBlob) {
                 $pdf->Image('@' . $pngBlob, 0, 0, 105.13, 148.17, 'PNG');
+                unset($pngBlob);
             } else {
                 $this->writeTemplateFallbackOnPage($pdf, $order);
             }
