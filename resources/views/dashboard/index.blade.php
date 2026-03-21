@@ -75,10 +75,14 @@
     </div>
 
     {{-- Stat Cards แถว 2: แยกขนส่ง --}}
-    @php $carrierTotal = $periodJt + $periodFlash; @endphp
-    <div class="grid grid-cols-2 gap-4 mb-6">
-        <div class="bg-blue-50 rounded-xl border border-blue-200 p-4 flex items-center gap-4">
-            <div class="flex-1">
+    @php
+        $carrierTotal = $periodJt + $periodFlash + $periodSpx;
+        $periodParams = ['date_from' => $dateFrom, 'date_to' => $dateTo];
+    @endphp
+    <div class="grid grid-cols-3 gap-4 mb-6">
+        <a href="{{ route('orders.index', array_merge($periodParams, ['carrier' => 'JT'])) }}"
+           class="bg-blue-50 rounded-xl border border-blue-200 p-4 flex items-center gap-4 hover:bg-blue-100 transition-colors">
+            <div class="flex-1 min-w-0">
                 <p class="text-xs text-blue-500 mb-1 font-medium">J&amp;T Express · {{ $periodLabel }}</p>
                 <p class="text-3xl font-bold text-blue-700">{{ number_format($periodJt) }}</p>
                 <p class="text-xs text-blue-400 mt-0.5">ออเดอร์</p>
@@ -89,9 +93,10 @@
                 <p class="text-xs text-blue-400">ของขนส่ง{{ $periodShort }}</p>
             </div>
             @endif
-        </div>
-        <div class="bg-orange-50 rounded-xl border border-orange-200 p-4 flex items-center gap-4">
-            <div class="flex-1">
+        </a>
+        <a href="{{ route('orders.index', array_merge($periodParams, ['carrier' => 'FLASH'])) }}"
+           class="bg-orange-50 rounded-xl border border-orange-200 p-4 flex items-center gap-4 hover:bg-orange-100 transition-colors">
+            <div class="flex-1 min-w-0">
                 <p class="text-xs text-orange-500 mb-1 font-medium">Flash Express · {{ $periodLabel }}</p>
                 <p class="text-3xl font-bold text-orange-600">{{ number_format($periodFlash) }}</p>
                 <p class="text-xs text-orange-400 mt-0.5">ออเดอร์</p>
@@ -102,7 +107,21 @@
                 <p class="text-xs text-orange-400">ของขนส่ง{{ $periodShort }}</p>
             </div>
             @endif
-        </div>
+        </a>
+        <a href="{{ route('orders.index', array_merge($periodParams, ['carrier' => 'SPX'])) }}"
+           class="bg-red-50 rounded-xl border border-red-200 p-4 flex items-center gap-4 hover:bg-red-100 transition-colors">
+            <div class="flex-1 min-w-0">
+                <p class="text-xs text-red-500 mb-1 font-medium">SPX Express · {{ $periodLabel }}</p>
+                <p class="text-3xl font-bold text-red-600">{{ number_format($periodSpx) }}</p>
+                <p class="text-xs text-red-400 mt-0.5">ออเดอร์</p>
+            </div>
+            @if($carrierTotal > 0)
+            <div class="text-right flex-shrink-0">
+                <p class="text-2xl font-bold text-red-500">{{ round($periodSpx / $carrierTotal * 100) }}<span class="text-base font-normal">%</span></p>
+                <p class="text-xs text-red-400">ของขนส่ง{{ $periodShort }}</p>
+            </div>
+            @endif
+        </a>
     </div>
 
     {{-- Row: Trend + Province --}}

@@ -418,8 +418,11 @@ class PdfParserService
         // ============================================================
         // Shipping Date
         // ============================================================
-        // PDF format: "09-03-2026Shipping Date:" (วันที่อยู่หน้า label)
-        if (preg_match('/(\d{2}-\d{2}-\d{4})Shipping\s*Date:/', $text, $m)) {
+        // J&T (PyMuPDF): "09-03-2026\nShipping Date:" | J&T (smalot): "09-03-2026Shipping Date:"
+        // Flash: "Shipping Date:\n21-03-2026"
+        if (preg_match('/(\d{2}-\d{2}-\d{4})\s*\n?\s*Shipping\s*Date:/s', $text, $m)) {
+            $data['shipping_date'] = $m[1];
+        } elseif (preg_match('/Shipping\s*Date:\s*\n?\s*(\d{2}-\d{2}-\d{4})/s', $text, $m)) {
             $data['shipping_date'] = $m[1];
         }
 

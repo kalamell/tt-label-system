@@ -30,14 +30,21 @@
                 <option value="SHOPEE"  {{ request('platform') === 'SHOPEE'  ? 'selected' : '' }}>Shopee</option>
             </select>
 
-            <input type="date" name="date" value="{{ request('date') }}"
-                   class="px-4 py-2 border border-gray-200 rounded-lg text-sm">
+            <div class="flex items-center gap-1">
+                <input type="date" name="date_from" value="{{ request('date_from', request('date')) }}"
+                       class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       title="วันเริ่มต้น">
+                <span class="text-gray-400 text-xs">–</span>
+                <input type="date" name="date_to" value="{{ request('date_to', request('date')) }}"
+                       class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       title="วันสิ้นสุด">
+            </div>
 
             <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
                 ค้นหา
             </button>
 
-            @if(request()->hasAny(['search', 'status', 'date', 'carrier', 'platform']))
+            @if(request()->hasAny(['search', 'status', 'date_from', 'date_to', 'date', 'carrier', 'platform']))
                 <a href="{{ route('orders.index') }}" class="text-sm text-gray-500 hover:text-gray-700">ล้าง</a>
             @endif
         </form>
@@ -117,7 +124,7 @@
     <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {{-- Batch print form --}}
         <form id="batch-form" action="{{ route('orders.print.batch') }}" method="POST">
-            @foreach(request()->only(['search','status','date','carrier','platform']) as $key => $val)
+            @foreach(request()->only(['search','status','date_from','date_to','carrier','platform']) as $key => $val)
                 @if($val)<input type="hidden" name="{{ $key }}" value="{{ $val }}">@endif
             @endforeach
             @csrf
@@ -235,7 +242,7 @@
     {{-- Hidden form for ZIP download --}}
     <form id="zip-form" action="{{ route('orders.download.zip') }}" method="POST" class="hidden">
         @csrf
-        @foreach(request()->only(['search','status','date','carrier','platform']) as $key => $val)
+        @foreach(request()->only(['search','status','date_from','date_to','carrier','platform']) as $key => $val)
             @if($val)<input type="hidden" name="{{ $key }}" value="{{ $val }}">@endif
         @endforeach
     </form>
@@ -243,7 +250,7 @@
     {{-- Hidden form for batch delete --}}
     <form id="delete-form" action="{{ route('orders.delete.batch') }}" method="POST" class="hidden">
         @csrf
-        @foreach(request()->only(['search','status','date','carrier','platform']) as $key => $val)
+        @foreach(request()->only(['search','status','date_from','date_to','carrier','platform']) as $key => $val)
             @if($val)<input type="hidden" name="{{ $key }}" value="{{ $val }}">@endif
         @endforeach
     </form>

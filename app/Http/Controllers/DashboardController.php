@@ -39,6 +39,7 @@ class DashboardController extends Controller
         $periodPrinted = (clone $statsQ)->where('label_printed', true)->count();
         $periodJt      = (clone $statsQ)->where('carrier', 'JT')->count();
         $periodFlash   = (clone $statsQ)->where('carrier', 'FLASH')->count();
+        $periodSpx     = (clone $statsQ)->where('carrier', 'SPX')->count();
 
         // รอพิมพ์ — ยอดรวมเสมอ (ไม่ขึ้นกับ period)
         $pendingOrders = Order::pending()->count();
@@ -136,9 +137,9 @@ class DashboardController extends Controller
         $expiringLots = $fifoService->getExpiringLots(30);
 
         return view('dashboard.index', compact(
-            'period', 'periodLabel', 'periodShort',
+            'period', 'periodLabel', 'periodShort', 'dateFrom', 'dateTo',
             'periodOrders', 'periodBoxes', 'periodCod', 'periodPrepaid',
-            'periodPrinted', 'periodJt', 'periodFlash',
+            'periodPrinted', 'periodJt', 'periodFlash', 'periodSpx',
             'pendingOrders',
             'trend', 'periodProducts', 'periodProvinces',
             'products', 'recentOrders', 'expiringLots'

@@ -329,10 +329,17 @@ def extract_key_fields(page) -> dict:
     if re.search(r'\bCOD\b', text):
         result['payment_type'] = 'COD'
 
-    # Shipping date: dd-mm-yyyyShipping Date:
-    m = re.search(r'(\d{2}-\d{2}-\d{4})Shipping\s*Date:', text)
+    # Shipping date patterns:
+    #   J&T (PyMuPDF): "09-03-2026\nShipping Date:"  ← date อยู่บรรทัดก่อน
+    #   J&T (smalot):  "09-03-2026Shipping Date:"    ← ติดกัน
+    #   Flash:         "Shipping Date:\n21-03-2026"  ← date อยู่บรรทัดถัดไป
+    m = re.search(r'(\d{2}-\d{2}-\d{4})\s*\n?\s*Shipping\s*Date:', text)
     if m:
         result['shipping_date'] = m.group(1)
+    else:
+        m = re.search(r'Shipping\s*Date:\s*\n?\s*(\d{2}-\d{2}-\d{4})', text)
+        if m:
+            result['shipping_date'] = m.group(1)
 
     return result
 

@@ -50,8 +50,11 @@ class OrderController extends Controller
             $query->where('platform', $platform);
         }
 
-        if ($date = $request->get('date')) {
-            $query->whereDate('shipping_date', $date);
+        $dateFrom = $request->get('date_from') ?: $request->get('date');
+        $dateTo   = $request->get('date_to')   ?: $request->get('date');
+        if ($dateFrom) {
+            $dateTo = $dateTo ?: $dateFrom;
+            $query->whereRaw('DATE(COALESCE(shipping_date, created_at)) BETWEEN ? AND ?', [$dateFrom, $dateTo]);
         }
 
         $orders = $query->paginate(50);
@@ -240,7 +243,30 @@ class OrderController extends Controller
 
             // 2. บันทึกออเดอร์
             foreach ($parsedOrders as $parsed) {
-                if (Order::where('order_id', $parsed['order_id'])->exists()) {
+                // ตรวจสอบด้วย order_id ก่อน (primary key ในธุรกิจ)
+                $existing = Order::where('order_id', $parsed['order_id'])->first();
+
+                if ($existing) {
+                    // อัพเดต field ที่ยังว่างอยู่ (ไม่ตรวจ tracking เพื่อกัน whitespace diff)
+                    $updateData = [];
+                    if (!$existing->shipping_date && !empty($parsed['shipping_date'])) {
+                        $updateData['shipping_date'] = \Carbon\Carbon::createFromFormat('d-m-Y', $parsed['shipping_date']);
+                    }
+                    if (empty($existing->carrier) && !empty($parsed['carrier'])) {
+                        $updateData['carrier'] = $parsed['carrier'];
+                    }
+                    if (empty($existing->service_type) && !empty($parsed['service_type'])) {
+                        $updateData['service_type'] = $parsed['service_type'];
+                    }
+                    if (empty($existing->sorting_code) && !empty($parsed['sorting_code'])) {
+                        $updateData['sorting_code'] = $parsed['sorting_code'];
+                    }
+                    if (empty($existing->sorting_code_2) && !empty($parsed['sorting_code_2'])) {
+                        $updateData['sorting_code_2'] = $parsed['sorting_code_2'];
+                    }
+                    if (!empty($updateData)) {
+                        $existing->update($updateData);
+                    }
                     $skipCount++;
                     continue;
                 }
