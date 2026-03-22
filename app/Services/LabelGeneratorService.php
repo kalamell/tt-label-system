@@ -22,8 +22,8 @@ use setasign\Fpdi\PdfParser\CrossReference\CrossReferenceException;
  */
 class LabelGeneratorService
 {
-    // DPI สำหรับ render PNG (สูงขึ้น = คมขึ้น แต่ช้าขึ้น)
-    private const IMAGICK_DPI = 200;
+    // DPI สำหรับ render PNG (150 = พอสำหรับพิมพ์ A6, เร็วกว่า 200 ~40%)
+    private const IMAGICK_DPI = 150;
 
     // Cache สำหรับ Python path และ PyMuPDF availability
     private ?string $python3Path    = null;
@@ -598,6 +598,11 @@ class LabelGeneratorService
 
     /**
      * พิมพ์ Label หลายรายการ (Batch) — รวมเป็นไฟล์เดียว
+     *
+     * Strategy ใหม่ (เร็วขึ้น):
+     *   1. Generate individual label ต่อ order (มี cache ที่ clean_pdf_path)
+     *   2. Merge PDF ที่ cache ไว้ด้วย FPDI (เร็วมาก, ไม่ต้อง Imagick ซ้ำ)
+     *   ผลลัพธ์: ครั้งแรก = เดิม, ครั้งต่อไปพิมพ์ซ้ำ = เร็วมาก
      */
     public function generateBatchLabels(Collection $orders): string
     {
@@ -606,45 +611,32 @@ class LabelGeneratorService
 
         $filename = 'batch_labels_' . now()->format('Ymd_His') . '.pdf';
         @mkdir(public_path('labels'), 0755, true);
-        $path     = public_path("labels/{$filename}");
+        $path = public_path("labels/{$filename}");
 
-
-        // แยก orders ตามว่ามี pre-rendered PNG หรือเปล่า
-        $withPng = $orders->filter(fn($o) =>
-            file_exists(public_path("uploads/pages/{$o->tracking_number}.png"))
-        );
-
-        if ($withPng->isNotEmpty() && extension_loaded('imagick')) {
-            // PNG path — ไม่ต้องการ Ghostscript
-            if ($withPng->count() === $orders->count()) {
-                $this->batchWithPng($orders, $path);
-            } else {
-                $this->batchMixed($orders, $path);
+        // Step 1: generate individual label สำหรับ order ที่ยังไม่มี cache
+        foreach ($orders as $order) {
+            $cached = $order->clean_pdf_path
+                && file_exists(public_path($order->clean_pdf_path));
+            if (!$cached) {
+                $this->generateSingleLabel($order);
+                $order->refresh();
             }
+        }
+
+        // Step 2: รวบรวม PDF paths ที่พร้อมแล้ว
+        $pdfPaths = $orders
+            ->filter(fn($o) => $o->clean_pdf_path && file_exists(public_path($o->clean_pdf_path)))
+            ->map(fn($o) => public_path($o->clean_pdf_path))
+            ->values()
+            ->all();
+
+        // Step 3: merge หรือ fallback
+        if (empty($pdfPaths)) {
+            $this->batchWithTemplate($orders, $path);
+        } elseif (count($pdfPaths) === 1) {
+            copy($pdfPaths[0], $path);
         } else {
-            // PDF-based path — ลอง FPDI → Imagick → template
-            $withOriginal = $orders->filter(
-                fn($o) => $o->original_pdf_path
-                    && $o->pdf_page_number
-                    && file_exists(public_path($o->original_pdf_path))
-            );
-
-            if ($withOriginal->isNotEmpty()) {
-                $strategy = $this->detectStrategy(
-                    public_path($withOriginal->first()->original_pdf_path)
-                );
-
-                if ($strategy === 'fpdi') {
-                    $this->batchWithFpdi($withOriginal, $path);
-                } elseif ($strategy === 'imagick') {
-                    $this->batchWithImagick($withOriginal, $path);
-                }
-            }
-
-            // Fallback: ถ้าไฟล์ยังไม่มี (strategy = template หรือไม่มี original PDF)
-            if (!file_exists($path)) {
-                $this->batchWithTemplate($orders, $path);
-            }
+            $this->mergePdfChunks($pdfPaths, $path);
         }
 
         $orders->each(fn($o) => $o->update([

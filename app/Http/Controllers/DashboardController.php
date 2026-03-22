@@ -27,7 +27,7 @@ class DashboardController extends Controller
 
         // ── Stats ตาม period ───────────────────────────────────────
         $statsQ = Order::whereRaw(
-                'COALESCE(DATE(shipping_date), DATE(created_at)) BETWEEN ? AND ?',
+                'DATE(created_at) BETWEEN ? AND ?',
                 [$dateFrom, $dateTo]
             )
             ->where('status', '!=', 'cancelled');
@@ -48,15 +48,15 @@ class DashboardController extends Controller
         if ($period === 'year') {
             // Trend รายเดือน (12 เดือน)
             $trendRaw = Order::selectRaw('
-                    DATE_FORMAT(COALESCE(shipping_date, DATE(created_at)), "%Y-%m") AS period_key,
+                    DATE_FORMAT(created_at, "%Y-%m") AS period_key,
                     COUNT(*) AS orders,
                     SUM(quantity) AS boxes,
                     SUM(carrier = "JT") AS jt_count,
                     SUM(carrier = "FLASH") AS flash_count
                 ')
-                ->whereYear(DB::raw('COALESCE(shipping_date, created_at)'), now()->year)
+                ->whereYear('created_at', now()->year)
                 ->where('status', '!=', 'cancelled')
-                ->groupByRaw('DATE_FORMAT(COALESCE(shipping_date, DATE(created_at)), "%Y-%m")')
+                ->groupByRaw('DATE_FORMAT(created_at, "%Y-%m")')
                 ->orderBy('period_key')
                 ->get()->keyBy('period_key');
 
@@ -79,15 +79,15 @@ class DashboardController extends Controller
             $since     = now()->subDays($trendDays)->toDateString();
 
             $trendRaw = Order::selectRaw('
-                    COALESCE(DATE(shipping_date), DATE(created_at)) AS period_key,
+                    DATE(created_at) AS period_key,
                     COUNT(*) AS orders,
                     SUM(quantity) AS boxes,
                     SUM(carrier = "JT") AS jt_count,
                     SUM(carrier = "FLASH") AS flash_count
                 ')
-                ->whereRaw('COALESCE(DATE(shipping_date), DATE(created_at)) >= ?', [$since])
+                ->whereRaw('DATE(created_at) >= ?', [$since])
                 ->where('status', '!=', 'cancelled')
-                ->groupByRaw('COALESCE(DATE(shipping_date), DATE(created_at))')
+                ->groupByRaw('DATE(created_at)')
                 ->orderBy('period_key')
                 ->get()->keyBy('period_key');
 
@@ -106,7 +106,7 @@ class DashboardController extends Controller
 
         // ── สรุปสินค้าตาม period ───────────────────────────────────
         $periodProducts = Order::selectRaw('product_id, COUNT(*) AS orders, SUM(quantity) AS boxes')
-            ->whereRaw('COALESCE(DATE(shipping_date), DATE(created_at)) BETWEEN ? AND ?', [$dateFrom, $dateTo])
+            ->whereRaw('DATE(created_at) BETWEEN ? AND ?', [$dateFrom, $dateTo])
             ->where('status', '!=', 'cancelled')
             ->whereNotNull('product_id')
             ->groupBy('product_id')
@@ -116,7 +116,7 @@ class DashboardController extends Controller
 
         // ── จังหวัด Top 6 ตาม period ──────────────────────────────
         $periodProvinces = Order::selectRaw('recipient_province, COUNT(*) AS cnt')
-            ->whereRaw('COALESCE(DATE(shipping_date), DATE(created_at)) BETWEEN ? AND ?', [$dateFrom, $dateTo])
+            ->whereRaw('DATE(created_at) BETWEEN ? AND ?', [$dateFrom, $dateTo])
             ->where('status', '!=', 'cancelled')
             ->whereNotNull('recipient_province')
             ->groupBy('recipient_province')

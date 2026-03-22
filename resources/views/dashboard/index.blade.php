@@ -48,7 +48,7 @@
             <p class="text-xs text-gray-400 mt-0.5">รายการ</p>
         </div>
         <div class="bg-white rounded-xl border border-gray-200 p-4">
-            <p class="text-xs text-gray-400 mb-1">กล่อง{{ $periodShort }}</p>
+            <p class="text-xs text-gray-400 mb-1">สินค้า{{ $periodShort }}</p>
             <p class="text-2xl font-bold text-purple-600">{{ number_format($periodBoxes) }}</p>
             <p class="text-xs text-gray-400 mt-0.5">ชิ้น</p>
         </div>
@@ -177,7 +177,7 @@
                             <tr class="text-left text-xs text-gray-400 uppercase border-b">
                                 <th class="pb-2 pr-4">สินค้า</th>
                                 <th class="pb-2 pr-4 text-center">ออเดอร์</th>
-                                <th class="pb-2 pr-4 text-center">กล่อง</th>
+                                <th class="pb-2 pr-4 text-center">จำนวนสินค้า</th>
                                 <th class="pb-2 text-center">สต๊อกคงเหลือ</th>
                             </tr>
                         </thead>
@@ -339,7 +339,7 @@ new Chart(ctx, {
                 yAxisID: 'y',
             },
             {
-                label: 'กล่อง',
+                label: 'จำนวนสินค้า',
                 data: trendData.map(d => d.boxes),
                 type: 'line',
                 borderColor: 'rgb(168,85,247)',
@@ -358,7 +358,7 @@ new Chart(ctx, {
         plugins: { legend: { position: 'top', labels: { font: { size: 11 } } } },
         scales: {
             y:  { beginAtZero: true, stacked: true, ticks: { stepSize: 1, font: { size: 11 } }, grid: { color: '#f3f4f6' }, title: { display: true, text: 'ออเดอร์', font: { size: 11 } } },
-            y2: { beginAtZero: true, position: 'right', ticks: { font: { size: 11 } }, grid: { drawOnChartArea: false }, title: { display: true, text: 'กล่อง', font: { size: 11 } } },
+            y2: { beginAtZero: true, position: 'right', ticks: { font: { size: 11 } }, grid: { drawOnChartArea: false }, title: { display: true, text: 'จำนวนสินค้า', font: { size: 11 } } },
         }
     }
 });

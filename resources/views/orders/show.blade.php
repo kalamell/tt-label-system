@@ -177,6 +177,7 @@
                 @endswitch
 
                 <div class="mt-4 text-sm text-gray-500 space-y-1">
+                    <p>นำเข้าเมื่อ: <span class="text-gray-700">{{ $order->created_at->format('d/m/Y H:i') }}</span></p>
                     <p>วันที่จัดส่ง: {{ $order->shipping_date?->format('d/m/Y') ?? '-' }}</p>
                 </div>
             </div>

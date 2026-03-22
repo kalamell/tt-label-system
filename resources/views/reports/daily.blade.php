@@ -51,12 +51,16 @@
     <div class="bg-white rounded-xl border border-gray-200 p-5">
         <p class="text-sm text-gray-500">ออเดอร์ทั้งหมด</p>
         <p class="text-3xl font-bold text-gray-900 mt-1">{{ number_format($totalOrders) }}</p>
-        <p class="text-xs text-gray-400 mt-1">รายการ</p>
+        @if($cancelledCount > 0)
+            <p class="text-xs text-red-400 mt-1">ยกเลิก {{ number_format($cancelledCount) }} รายการ</p>
+        @else
+            <p class="text-xs text-gray-400 mt-1">รายการ</p>
+        @endif
     </div>
     <div class="bg-white rounded-xl border border-gray-200 p-5">
-        <p class="text-sm text-gray-500">จำนวนกล่อง</p>
+        <p class="text-sm text-gray-500">จำนวนสินค้า</p>
         <p class="text-3xl font-bold text-blue-600 mt-1">{{ number_format($totalBoxes) }}</p>
-        <p class="text-xs text-gray-400 mt-1">ชิ้น/กล่อง</p>
+        <p class="text-xs text-gray-400 mt-1">ชิ้น</p>
     </div>
     <div class="bg-white rounded-xl border border-gray-200 p-5">
         <p class="text-sm text-gray-500">COD</p>
@@ -71,8 +75,8 @@
 </div>
 
 {{-- Summary Cards แถว 2: แยกขนส่ง --}}
-@php $carrierTotal = $jtCount + $flashCount; @endphp
-<div class="grid grid-cols-2 gap-4 mb-6">
+@php $carrierTotal = $jtCount + $flashCount + $spxCount; @endphp
+<div class="grid grid-cols-3 gap-4 mb-6">
     <div class="bg-blue-50 rounded-xl border border-blue-200 p-5 flex items-center gap-4">
         <div class="flex-1">
             <p class="text-sm text-blue-500 font-medium">J&amp;T Express</p>
@@ -96,6 +100,19 @@
         <div class="text-right flex-shrink-0">
             <p class="text-2xl font-bold text-orange-500">{{ round($flashCount / $carrierTotal * 100) }}<span class="text-base font-normal">%</span></p>
             <p class="text-xs text-orange-400">ของขนส่งทั้งหมด</p>
+        </div>
+        @endif
+    </div>
+    <div class="bg-red-50 rounded-xl border border-red-200 p-5 flex items-center gap-4">
+        <div class="flex-1">
+            <p class="text-sm text-red-500 font-medium">SPX Express</p>
+            <p class="text-3xl font-bold text-red-600 mt-1">{{ number_format($spxCount) }}</p>
+            <p class="text-xs text-red-400 mt-1">ออเดอร์</p>
+        </div>
+        @if($carrierTotal > 0)
+        <div class="text-right flex-shrink-0">
+            <p class="text-2xl font-bold text-red-500">{{ round($spxCount / $carrierTotal * 100) }}<span class="text-base font-normal">%</span></p>
+            <p class="text-xs text-red-400">ของขนส่งทั้งหมด</p>
         </div>
         @endif
     </div>
@@ -127,7 +144,9 @@
                         <th class="pb-2 pr-4 text-right">COD</th>
                         <th class="pb-2 pr-4 text-right">PREPAID</th>
                         <th class="pb-2 pr-4 text-right text-blue-400">J&amp;T</th>
-                        <th class="pb-2 text-right text-orange-400">Flash</th>
+                        <th class="pb-2 pr-4 text-right text-orange-400">Flash</th>
+                        <th class="pb-2 pr-4 text-right text-red-400">SPX</th>
+                        <th class="pb-2 text-right text-gray-400">ยกเลิก</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -144,7 +163,9 @@
                         <td class="py-2.5 pr-4 text-right text-orange-500">{{ number_format($row->cod_count) }}</td>
                         <td class="py-2.5 pr-4 text-right text-green-600">{{ number_format($row->prepaid_count) }}</td>
                         <td class="py-2.5 pr-4 text-right text-blue-600 font-medium">{{ number_format($row->jt_count) }}</td>
-                        <td class="py-2.5 text-right text-orange-500 font-medium">{{ number_format($row->flash_count) }}</td>
+                        <td class="py-2.5 pr-4 text-right text-orange-500 font-medium">{{ number_format($row->flash_count) }}</td>
+                        <td class="py-2.5 pr-4 text-right text-red-500 font-medium">{{ number_format($row->spx_count) }}</td>
+                        <td class="py-2.5 text-right text-gray-400">{{ $row->cancelled_count > 0 ? number_format($row->cancelled_count) : '—' }}</td>
                     </tr>
                     @endforeach
                     {{-- รวม --}}
@@ -156,7 +177,9 @@
                         <td class="py-2.5 pr-4 text-right text-orange-500">{{ number_format($dailySummary->sum('cod_count')) }}</td>
                         <td class="py-2.5 pr-4 text-right text-green-600">{{ number_format($dailySummary->sum('prepaid_count')) }}</td>
                         <td class="py-2.5 pr-4 text-right text-blue-600">{{ number_format($dailySummary->sum('jt_count')) }}</td>
-                        <td class="py-2.5 text-right text-orange-500">{{ number_format($dailySummary->sum('flash_count')) }}</td>
+                        <td class="py-2.5 pr-4 text-right text-orange-500">{{ number_format($dailySummary->sum('flash_count')) }}</td>
+                        <td class="py-2.5 pr-4 text-right text-red-500">{{ number_format($dailySummary->sum('spx_count')) }}</td>
+                        <td class="py-2.5 text-right text-gray-400">{{ number_format($dailySummary->sum('cancelled_count')) }}</td>
                     </tr>
                     @endif
                 </tbody>
@@ -200,7 +223,7 @@
                         <th class="pb-2 pr-4">สินค้า</th>
                         <th class="pb-2 pr-4">Seller SKU</th>
                         <th class="pb-2 pr-4 text-right">ออเดอร์</th>
-                        <th class="pb-2 text-right">กล่อง/ชิ้น</th>
+                        <th class="pb-2 text-right">จำนวน</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -263,13 +286,15 @@
                     @foreach($ordersInRange as $order)
                     <tr class="border-b border-gray-50 hover:bg-gray-50">
                         <td class="py-2 pr-3 text-xs text-gray-500 whitespace-nowrap">
-                            {{ ($order->shipping_date ?? $order->created_at)->format('d/m/Y') }}
+                            {{ $order->created_at->format('d/m/Y') }}
                         </td>
                         <td class="py-2 pr-3">
                             @if($order->carrier === 'FLASH')
                                 <span class="px-1.5 py-0.5 bg-orange-50 text-orange-600 rounded text-xs font-medium">Flash</span>
                             @elseif($order->carrier === 'JT')
                                 <span class="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-xs font-medium">J&amp;T</span>
+                            @elseif($order->carrier === 'SPX')
+                                <span class="px-1.5 py-0.5 bg-red-50 text-red-600 rounded text-xs font-medium">SPX</span>
                             @else
                                 <span class="text-gray-300 text-xs">—</span>
                             @endif
@@ -343,7 +368,15 @@ new Chart(document.getElementById('trendChart'), {
                 yAxisID: 'y',
             },
             {
-                label: 'กล่อง',
+                label: 'SPX',
+                data: trendData.map(d => d.spx_count),
+                backgroundColor: 'rgba(239,68,68,0.75)',
+                borderRadius: 3,
+                stack: 'orders',
+                yAxisID: 'y',
+            },
+            {
+                label: 'จำนวนสินค้า',
                 data: boxes,
                 type: 'line',
                 borderColor: 'rgba(234,179,8,0.9)',
@@ -361,7 +394,7 @@ new Chart(document.getElementById('trendChart'), {
         plugins: { legend: { position: 'top' } },
         scales: {
             y:  { beginAtZero: true, stacked: true, position: 'left',  title: { display: true, text: 'ออเดอร์' } },
-            y1: { beginAtZero: true, position: 'right', title: { display: true, text: 'กล่อง' }, grid: { drawOnChartArea: false } },
+            y1: { beginAtZero: true, position: 'right', title: { display: true, text: 'จำนวนสินค้า' }, grid: { drawOnChartArea: false } },
         },
     },
 });

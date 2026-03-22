@@ -27,7 +27,9 @@ class OrderController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Order::with('product')->orderByRaw('COALESCE(shipping_date, created_at) DESC');
+        $sortBy  = in_array($request->get('sort'), ['quantity', 'created_at']) ? $request->get('sort') : 'created_at';
+        $sortDir = $request->get('dir') === 'asc' ? 'asc' : 'desc';
+        $query = Order::with('product')->orderBy($sortBy, $sortDir);
 
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
@@ -54,7 +56,7 @@ class OrderController extends Controller
         $dateTo   = $request->get('date_to')   ?: $request->get('date');
         if ($dateFrom) {
             $dateTo = $dateTo ?: $dateFrom;
-            $query->whereRaw('DATE(COALESCE(shipping_date, created_at)) BETWEEN ? AND ?', [$dateFrom, $dateTo]);
+            $query->whereRaw('DATE(created_at) BETWEEN ? AND ?', [$dateFrom, $dateTo]);
         }
 
         $orders = $query->paginate(50);

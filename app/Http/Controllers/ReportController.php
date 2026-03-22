@@ -17,33 +17,35 @@ class ReportController extends Controller
         $from = Carbon::parse($dateFrom)->startOfDay();
         $to   = Carbon::parse($dateTo)->endOfDay();
 
-        // ออเดอร์ในช่วงที่เลือก (ใช้ shipping_date เป็นหลัก)
+        // ออเดอร์ในช่วงที่เลือก (ใช้ created_at เป็นหลัก — นับทุกสถานะ)
         $ordersInRange = Order::with('product')
-            ->whereRaw('COALESCE(shipping_date, DATE(created_at)) BETWEEN ? AND ?', [$dateFrom, $dateTo])
-            ->where('status', '!=', 'cancelled')
-            ->orderByRaw('COALESCE(shipping_date, DATE(created_at)) DESC')
+            ->whereRaw('DATE(created_at) BETWEEN ? AND ?', [$dateFrom, $dateTo])
+            ->orderBy('created_at', 'DESC')
             ->get();
 
-        $totalOrders  = $ordersInRange->count();
-        $totalBoxes   = $ordersInRange->sum('quantity');
-        $codCount     = $ordersInRange->where('payment_type', 'COD')->count();
-        $prepaidCount = $ordersInRange->where('payment_type', 'PREPAID')->count();
-        $jtCount      = $ordersInRange->where('carrier', 'JT')->count();
-        $flashCount   = $ordersInRange->where('carrier', 'FLASH')->count();
+        $totalOrders    = $ordersInRange->count();
+        $totalBoxes     = $ordersInRange->sum('quantity');
+        $cancelledCount = $ordersInRange->where('status', 'cancelled')->count();
+        $codCount       = $ordersInRange->where('payment_type', 'COD')->count();
+        $prepaidCount   = $ordersInRange->where('payment_type', 'PREPAID')->count();
+        $jtCount        = $ordersInRange->where('carrier', 'JT')->count();
+        $flashCount     = $ordersInRange->where('carrier', 'FLASH')->count();
+        $spxCount       = $ordersInRange->where('carrier', 'SPX')->count();
 
         // สรุปรายวัน (ในช่วงที่เลือก)
         $dailySummary = Order::selectRaw('
-                COALESCE(shipping_date, DATE(created_at))  AS date,
+                DATE(created_at)                            AS date,
                 COUNT(*)                                    AS orders,
                 SUM(quantity)                               AS boxes,
                 SUM(payment_type = "COD")                   AS cod_count,
                 SUM(payment_type = "PREPAID")               AS prepaid_count,
                 SUM(carrier = "JT")                         AS jt_count,
-                SUM(carrier = "FLASH")                      AS flash_count
+                SUM(carrier = "FLASH")                      AS flash_count,
+                SUM(carrier = "SPX")                        AS spx_count,
+                SUM(status = "cancelled")                   AS cancelled_count
             ')
-            ->whereRaw('COALESCE(shipping_date, DATE(created_at)) BETWEEN ? AND ?', [$dateFrom, $dateTo])
-            ->where('status', '!=', 'cancelled')
-            ->groupByRaw('COALESCE(shipping_date, DATE(created_at))')
+            ->whereRaw('DATE(created_at) BETWEEN ? AND ?', [$dateFrom, $dateTo])
+            ->groupByRaw('DATE(created_at)')
             ->orderBy('date', 'desc')
             ->get();
 
@@ -55,8 +57,7 @@ class ReportController extends Controller
                 COUNT(*)       AS orders,
                 SUM(quantity)  AS boxes
             ')
-            ->whereRaw('COALESCE(shipping_date, DATE(created_at)) BETWEEN ? AND ?', [$dateFrom, $dateTo])
-            ->where('status', '!=', 'cancelled')
+            ->whereRaw('DATE(created_at) BETWEEN ? AND ?', [$dateFrom, $dateTo])
             ->groupBy('product_id', 'seller_sku', 'product_name')
             ->with('product')
             ->orderByRaw('SUM(quantity) DESC')
@@ -64,8 +65,7 @@ class ReportController extends Controller
 
         // สรุปจังหวัด Top 10
         $provinceSummary = Order::selectRaw('recipient_province, COUNT(*) AS cnt')
-            ->whereRaw('COALESCE(shipping_date, DATE(created_at)) BETWEEN ? AND ?', [$dateFrom, $dateTo])
-            ->where('status', '!=', 'cancelled')
+            ->whereRaw('DATE(created_at) BETWEEN ? AND ?', [$dateFrom, $dateTo])
             ->whereNotNull('recipient_province')
             ->groupBy('recipient_province')
             ->orderBy('cnt', 'desc')
@@ -75,15 +75,15 @@ class ReportController extends Controller
         // Trend 30 วันล่าสุด (สำหรับกราฟ)
         $since30 = now()->subDays(29)->toDateString();
         $trend = Order::selectRaw('
-                COALESCE(shipping_date, DATE(created_at)) AS date,
+                DATE(created_at) AS date,
                 COUNT(*) AS orders,
                 SUM(quantity) AS boxes,
                 SUM(carrier = "JT") AS jt_count,
-                SUM(carrier = "FLASH") AS flash_count
+                SUM(carrier = "FLASH") AS flash_count,
+                SUM(carrier = "SPX") AS spx_count
             ')
-            ->whereRaw('COALESCE(shipping_date, DATE(created_at)) >= ?', [$since30])
-            ->where('status', '!=', 'cancelled')
-            ->groupByRaw('COALESCE(shipping_date, DATE(created_at))')
+            ->whereRaw('DATE(created_at) >= ?', [$since30])
+            ->groupByRaw('DATE(created_at)')
             ->orderBy('date', 'asc')
             ->get()
             ->keyBy('date');
@@ -99,12 +99,14 @@ class ReportController extends Controller
                 'boxes'       => $trend[$d]->boxes        ?? 0,
                 'jt_count'    => $trend[$d]->jt_count    ?? 0,
                 'flash_count' => $trend[$d]->flash_count ?? 0,
+                'spx_count'   => $trend[$d]->spx_count   ?? 0,
             ]);
         }
 
         return view('reports.daily', compact(
             'dateFrom', 'dateTo',
-            'totalOrders', 'totalBoxes', 'codCount', 'prepaidCount', 'jtCount', 'flashCount',
+            'totalOrders', 'totalBoxes', 'cancelledCount', 'codCount', 'prepaidCount',
+            'jtCount', 'flashCount', 'spxCount',
             'dailySummary', 'productSummary', 'provinceSummary',
             'ordersInRange', 'trendDays'
         ));
@@ -119,9 +121,9 @@ class ReportController extends Controller
         $to   = Carbon::parse($dateTo)->endOfDay();
 
         $orders = Order::with('product')
-            ->whereRaw('COALESCE(shipping_date, DATE(created_at)) BETWEEN ? AND ?', [$dateFrom, $dateTo])
+            ->whereRaw('DATE(created_at) BETWEEN ? AND ?', [$dateFrom, $dateTo])
             ->where('status', '!=', 'cancelled')
-            ->orderByRaw('COALESCE(shipping_date, DATE(created_at)) ASC')
+            ->orderBy('created_at', 'ASC')
             ->get();
 
         $filename = "รายงาน_{$dateFrom}_ถึง_{$dateTo}.csv";
@@ -136,7 +138,7 @@ class ReportController extends Controller
             fputs($f, "\xEF\xBB\xBF"); // BOM สำหรับ Excel
 
             fputcsv($f, [
-                'วันที่จัดส่ง', 'Order ID', 'Tracking Number', 'ขนส่ง', 'บริการ',
+                'วันที่นำเข้า', 'Order ID', 'Tracking Number', 'ขนส่ง', 'บริการ',
                 'ผู้รับ', 'อำเภอ', 'จังหวัด', 'รหัสไปรษณีย์',
                 'ชำระเงิน', 'ประเภทจัดส่ง',
                 'สินค้าในระบบ', 'Seller SKU', 'จำนวน', 'Lot',
@@ -145,7 +147,7 @@ class ReportController extends Controller
 
             foreach ($orders as $o) {
                 fputcsv($f, [
-                    ($o->shipping_date ?? $o->created_at)->format('Y-m-d'),
+                    $o->created_at->format('Y-m-d'),
                     $o->order_id,
                     $o->tracking_number,
                     match($o->carrier) { 'JT' => 'J&T Express', 'FLASH' => 'Flash Express', default => '-' },

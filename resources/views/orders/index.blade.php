@@ -12,9 +12,10 @@
 
             <select name="status" class="px-4 py-2 border border-gray-200 rounded-lg text-sm">
                 <option value="">ทุกสถานะ</option>
-                <option value="pending"  {{ request('status') == 'pending'  ? 'selected' : '' }}>รอพิมพ์</option>
-                <option value="printed"  {{ request('status') == 'printed'  ? 'selected' : '' }}>พิมพ์แล้ว</option>
-                <option value="shipped"  {{ request('status') == 'shipped'  ? 'selected' : '' }}>จัดส่งแล้ว</option>
+                <option value="pending"   {{ request('status') == 'pending'    ? 'selected' : '' }}>รอพิมพ์</option>
+                <option value="printed"   {{ request('status') == 'printed'    ? 'selected' : '' }}>พิมพ์แล้ว</option>
+                <option value="shipped"   {{ request('status') == 'shipped'    ? 'selected' : '' }}>จัดส่งแล้ว</option>
+                <option value="cancelled" {{ request('status') == 'cancelled'  ? 'selected' : '' }}>ยกเลิก</option>
             </select>
 
             <select name="carrier" class="px-4 py-2 border border-gray-200 rounded-lg text-sm">
@@ -124,10 +125,17 @@
     <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {{-- Batch print form --}}
         <form id="batch-form" action="{{ route('orders.print.batch') }}" method="POST">
-            @foreach(request()->only(['search','status','date_from','date_to','carrier','platform']) as $key => $val)
+            @foreach(request()->only(['search','status','date_from','date_to','carrier','platform','sort','dir']) as $key => $val)
                 @if($val)<input type="hidden" name="{{ $key }}" value="{{ $val }}">@endif
             @endforeach
             @csrf
+            @php
+                $currentSort = request('sort', 'created_at');
+                $currentDir  = request('dir', 'desc');
+                $qtyDir      = ($currentSort === 'quantity' && $currentDir === 'desc') ? 'asc' : 'desc';
+                $dateDir     = ($currentSort === 'created_at' && $currentDir === 'desc') ? 'asc' : 'desc';
+                $sortParams  = request()->except(['sort','dir','page']);
+            @endphp
             <table class="w-full text-sm">
                 <thead class="bg-gray-50 border-b">
                     <tr>
@@ -140,9 +148,41 @@
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order ID</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ผู้รับ</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ปลายทาง</th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Qty</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">
+                            <a href="{{ route('orders.index', array_merge($sortParams, ['sort'=>'quantity','dir'=>$qtyDir])) }}"
+                               class="inline-flex items-center gap-1 hover:text-gray-800 {{ $currentSort==='quantity' ? 'text-blue-600' : '' }}">
+                                Qty
+                                @if($currentSort === 'quantity')
+                                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                        @if($currentDir === 'asc')
+                                            <path d="M5 10l5-5 5 5H5z"/>
+                                        @else
+                                            <path d="M15 10l-5 5-5-5h10z"/>
+                                        @endif
+                                    </svg>
+                                @else
+                                    <svg class="w-3 h-3 opacity-30" fill="currentColor" viewBox="0 0 20 20"><path d="M15 10l-5 5-5-5h10z"/></svg>
+                                @endif
+                            </a>
+                        </th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">จ่าย</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ship Date</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                            <a href="{{ route('orders.index', array_merge($sortParams, ['sort'=>'created_at','dir'=>$dateDir])) }}"
+                               class="inline-flex items-center gap-1 hover:text-gray-800 {{ $currentSort==='created_at' ? 'text-blue-600' : '' }}">
+                                นำเข้าเมื่อ
+                                @if($currentSort === 'created_at')
+                                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                        @if($currentDir === 'asc')
+                                            <path d="M5 10l5-5 5 5H5z"/>
+                                        @else
+                                            <path d="M15 10l-5 5-5-5h10z"/>
+                                        @endif
+                                    </svg>
+                                @else
+                                    <svg class="w-3 h-3 opacity-30" fill="currentColor" viewBox="0 0 20 20"><path d="M15 10l-5 5-5-5h10z"/></svg>
+                                @endif
+                            </a>
+                        </th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">สถานะ</th>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">จัดการ</th>
                     </tr>
@@ -197,7 +237,8 @@
                                 @endif
                             </td>
                             <td class="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
-                                {{ $order->shipping_date ? \Carbon\Carbon::parse($order->shipping_date)->format('d/m/y') : '—' }}
+                                <span class="block">{{ $order->created_at->format('d/m/y') }}</span>
+                                <span class="text-gray-400">{{ $order->created_at->format('H:i') }}</span>
                             </td>
                             <td class="px-4 py-3">
                                 @switch($order->status)
@@ -209,6 +250,9 @@
                                         @break
                                     @case('shipped')
                                         <span class="px-2 py-0.5 bg-green-50 text-green-700 rounded-full text-xs">จัดส่งแล้ว</span>
+                                        @break
+                                    @case('cancelled')
+                                        <span class="px-2 py-0.5 bg-red-50 text-red-600 rounded-full text-xs">ยกเลิก</span>
                                         @break
                                     @default
                                         <span class="px-2 py-0.5 bg-gray-50 text-gray-600 rounded-full text-xs">{{ $order->status }}</span>
@@ -242,7 +286,7 @@
     {{-- Hidden form for ZIP download --}}
     <form id="zip-form" action="{{ route('orders.download.zip') }}" method="POST" class="hidden">
         @csrf
-        @foreach(request()->only(['search','status','date_from','date_to','carrier','platform']) as $key => $val)
+        @foreach(request()->only(['search','status','date_from','date_to','carrier','platform','sort','dir']) as $key => $val)
             @if($val)<input type="hidden" name="{{ $key }}" value="{{ $val }}">@endif
         @endforeach
     </form>
@@ -250,7 +294,7 @@
     {{-- Hidden form for batch delete --}}
     <form id="delete-form" action="{{ route('orders.delete.batch') }}" method="POST" class="hidden">
         @csrf
-        @foreach(request()->only(['search','status','date_from','date_to','carrier','platform']) as $key => $val)
+        @foreach(request()->only(['search','status','date_from','date_to','carrier','platform','sort','dir']) as $key => $val)
             @if($val)<input type="hidden" name="{{ $key }}" value="{{ $val }}">@endif
         @endforeach
     </form>
