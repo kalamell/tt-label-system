@@ -571,6 +571,7 @@ class LabelGeneratorService
     {
         $filename = "label_{$order->tracking_number}.pdf";
         $path     = public_path("labels/{$filename}");
+        @mkdir(public_path('labels'), 0755, true);
 
         $pngPath      = public_path("uploads/pages/{$order->tracking_number}.png");
         $originalPath = $order->original_pdf_path
@@ -600,10 +601,11 @@ class LabelGeneratorService
      */
     public function generateBatchLabels(Collection $orders): string
     {
-        @ini_set('memory_limit', '512M');
+        @ini_set('memory_limit', '2048M');
         @set_time_limit(0);
 
         $filename = 'batch_labels_' . now()->format('Ymd_His') . '.pdf';
+        @mkdir(public_path('labels'), 0755, true);
         $path     = public_path("labels/{$filename}");
 
 
@@ -830,7 +832,7 @@ class LabelGeneratorService
      */
     protected function batchWithPng(Collection $orders, string $outputPath): void
     {
-        $chunks = $orders->chunk(30);
+        $chunks = $orders->chunk(10);
 
         if ($chunks->count() === 1) {
             $this->_renderPngChunk($orders, $outputPath);
@@ -879,7 +881,7 @@ class LabelGeneratorService
      */
     protected function batchMixed(Collection $orders, string $outputPath): void
     {
-        $chunks = $orders->chunk(30);
+        $chunks = $orders->chunk(10);
 
         if ($chunks->count() === 1) {
             $this->_renderMixedChunk($orders, $outputPath);

@@ -260,6 +260,27 @@
         {{ $orders->withQueryString()->links() }}
     </div>
 
+    {{-- Progress Overlay --}}
+    <div id="progress-overlay" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 w-80 flex flex-col items-center gap-5">
+            {{-- Spinner --}}
+            <div id="overlay-spinner" class="w-14 h-14 border-4 border-gray-100 border-t-blue-600 rounded-full animate-spin"></div>
+            {{-- Done icon (hidden) --}}
+            <div id="overlay-done-icon" class="hidden w-14 h-14 bg-green-100 rounded-full flex items-center justify-center">
+                <svg class="w-7 h-7 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                </svg>
+            </div>
+            {{-- Text --}}
+            <p id="overlay-text" class="text-gray-700 font-semibold text-base text-center"></p>
+            {{-- Progress bar --}}
+            <div class="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                <div id="overlay-bar" class="h-full bg-blue-600 rounded-full transition-all duration-500 ease-out" style="width:0%"></div>
+            </div>
+            <p id="overlay-sub" class="text-xs text-gray-400">กรุณารอสักครู่ อย่าปิดหน้านี้</p>
+        </div>
+    </div>
+
 @endsection
 
 @push('scripts')
@@ -363,19 +384,79 @@
         }
     }
 
+    // ── Progress Overlay ────────────────────────────────────────
+    let _progressTimer = null;
+
+    function showOverlay(text) {
+        document.getElementById('overlay-text').textContent = text;
+        document.getElementById('overlay-sub').textContent = 'กรุณารอสักครู่ อย่าปิดหน้านี้';
+        document.getElementById('overlay-bar').style.width = '0%';
+        document.getElementById('overlay-spinner').classList.remove('hidden');
+        document.getElementById('overlay-done-icon').classList.add('hidden');
+        document.getElementById('progress-overlay').classList.remove('hidden');
+
+        // Simulate progress: 0→80% over ~12s
+        let pct = 0;
+        clearInterval(_progressTimer);
+        _progressTimer = setInterval(() => {
+            pct = Math.min(pct + (Math.random() * 4 + 1), 80);
+            document.getElementById('overlay-bar').style.width = pct + '%';
+        }, 400);
+    }
+
+    function overlayDone(text) {
+        clearInterval(_progressTimer);
+        document.getElementById('overlay-bar').style.width = '100%';
+        document.getElementById('overlay-spinner').classList.add('hidden');
+        document.getElementById('overlay-done-icon').classList.remove('hidden');
+        document.getElementById('overlay-text').textContent = text;
+        document.getElementById('overlay-sub').textContent = 'กำลังดาวน์โหลดไฟล์...';
+        setTimeout(() => {
+            document.getElementById('progress-overlay').classList.add('hidden');
+        }, 2000);
+    }
+
+    function overlayError(msg) {
+        clearInterval(_progressTimer);
+        document.getElementById('progress-overlay').classList.add('hidden');
+        alert('เกิดข้อผิดพลาด: ' + msg);
+    }
+
+    async function _fetchDownload(url, formEl, defaultFilename) {
+        const formData = new FormData(formEl);
+        const res = await fetch(url, { method: 'POST', body: formData });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+
+        // ดึงชื่อไฟล์จาก Content-Disposition
+        const cd = res.headers.get('Content-Disposition') || '';
+        const match = cd.match(/filename[^;=\n]*=["']?([^"';\n]+)/i);
+        const filename = match ? match[1].trim() : defaultFilename;
+
+        const blob = await res.blob();
+        const url2 = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url2; a.download = filename; a.click();
+        setTimeout(() => URL.revokeObjectURL(url2), 5000);
+    }
+
     function printSelected(btn) {
-        _injectOrderIds(document.getElementById('batch-form'));
-        setBtnLoading(btn, 'กำลังสร้าง PDF...');
-        document.getElementById('batch-form').submit();
-        setTimeout(() => resetBtn(btn, 'พิมพ์ PDF รวม'), 8000);
+        const form = document.getElementById('batch-form');
+        _injectOrderIds(form);
+        showOverlay('กำลังสร้าง PDF...');
+
+        _fetchDownload(form.action, form, 'batch_labels.pdf')
+            .then(() => overlayDone('สร้าง PDF เสร็จแล้ว!'))
+            .catch(e => overlayError(e.message));
     }
 
     function downloadZip(btn) {
         const form = document.getElementById('zip-form');
         _injectOrderIds(form);
-        setBtnLoading(btn, 'กำลังสร้าง ZIP...');
-        form.submit();
-        setTimeout(() => resetBtn(btn, 'Download ZIP'), 15000);
+        showOverlay('กำลังสร้าง ZIP...');
+
+        _fetchDownload(form.action, form, 'labels.zip')
+            .then(() => overlayDone('สร้าง ZIP เสร็จแล้ว!'))
+            .catch(e => overlayError(e.message));
     }
 
     function deleteSelected() {

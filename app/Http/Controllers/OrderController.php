@@ -91,7 +91,10 @@ class OrderController extends Controller
 
         $platform = $request->input('platform', 'TIKTOK');
 
-        // เก็บไฟล์ต้นฉบับ
+        // เก็บไฟล์ต้นฉบับ (auto-create dirs ป้องกันเครื่องใหม่ที่ยังไม่มี folder)
+        @mkdir(public_path('uploads/originals'), 0755, true);
+        @mkdir(public_path('uploads/temp'), 0755, true);
+        @mkdir(public_path('labels'), 0755, true);
         $originalPath = $request->file('pdf_file')->store('uploads/originals', 'public_files');
 
         // อ่าน PDF ด้วย parser ที่ถูก platform

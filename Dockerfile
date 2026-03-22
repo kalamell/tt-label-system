@@ -36,5 +36,8 @@ RUN mkdir -p public/uploads/originals public/uploads/temp public/labels public/f
 COPY docker-entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
+RUN echo "memory_limit = 2048M\nmax_execution_time = 300\nupload_max_filesize = 60M\npost_max_size = 65M" \
+    > /usr/local/etc/php/conf.d/custom.ini
+
 EXPOSE 8000
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
