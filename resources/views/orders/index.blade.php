@@ -148,6 +148,7 @@
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order ID</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ผู้รับ</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ปลายทาง</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">สินค้า</th>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">
                             <a href="{{ route('orders.index', array_merge($sortParams, ['sort'=>'quantity','dir'=>$qtyDir])) }}"
                                class="inline-flex items-center gap-1 hover:text-gray-800 {{ $currentSort==='quantity' ? 'text-blue-600' : '' }}">
@@ -225,6 +226,20 @@
                             <td class="px-4 py-3">
                                 <p class="text-gray-600">{{ $order->recipient_district }}</p>
                                 <p class="text-xs text-gray-400">{{ $order->recipient_province }} {{ $order->recipient_zipcode }}</p>
+                            </td>
+                            <td class="px-4 py-3 text-xs">
+                                @php
+                                    $skus  = array_map('trim', explode('|', $order->seller_sku ?? $order->product_sku ?? ''));
+                                    $iQtys = array_map('trim', explode('|', $order->item_quantities ?? $order->quantity ?? '1'));
+                                @endphp
+                                @foreach($skus as $si => $sku)
+                                    @if($sku)
+                                        <div class="flex gap-2">
+                                            <span class="font-medium text-gray-800">{{ $sku }}</span>
+                                            <span class="text-gray-400">{{ $iQtys[$si] ?? 1 }}</span>
+                                        </div>
+                                    @endif
+                                @endforeach
                             </td>
                             <td class="px-4 py-3 text-center">
                                 <span class="text-sm font-semibold text-gray-800">{{ $order->quantity ?? 1 }}</span>

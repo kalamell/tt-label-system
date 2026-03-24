@@ -141,7 +141,7 @@ class ShopeeParserService
         // ============================================================
         if (str_contains($text, 'SPEED') || str_contains($text, 'FLASH')) {
             $data['carrier'] = 'FLASH';
-        } elseif (str_contains($text, 'HOME') || str_contains($text, 'SPX')) {
+        } elseif (str_contains($text, 'HOME') || str_contains($text, 'OFFICE') || str_contains($text, 'SPX')) {
             $data['carrier'] = 'SPX';
         }
 
@@ -205,7 +205,7 @@ class ShopeeParserService
         // ============================================================
         if (preg_match('/ผู้ส่ง\s*\(FROM\)\s+(.+)/u', $text, $m)) {
             // ตัด HOME / SPEED ออกจากท้าย (service type ที่ติดมา)
-            $senderLine = preg_replace('/\s+(HOME|SPEED|SPX|FLASH)\s*$/u', '', trim($m[1]));
+            $senderLine = preg_replace('/\s+(HOME|OFFICE|SPEED|SPX|FLASH)\s*$/u', '', trim($m[1]));
             $data['sender_name'] = trim($senderLine);
         }
 
@@ -288,6 +288,7 @@ class ShopeeParserService
         // Product Table — ระหว่าง "ชื่อสินค้า" header กับ "Shopee Order No."
         // extract_page_texts.py เรียง spans ตาม X แล้ว join ด้วย space
         // ดังนั้นแต่ละบรรทัดคือ spans ทุก column รวมกัน
+        // รองรับหลายรายการ → เก็บเป็น pipe-delimited (product_name|product_name2)
         // ============================================================
         if (preg_match('/ชื่อสินค้า[^\n]*\n(.*?)(?=Shopee\s+Order\s+No)/su', $text, $m)) {
             $prodSection = trim($m[1]);
@@ -298,24 +299,45 @@ class ShopeeParserService
                 fn($l) => $l !== '' && !preg_match('/^\d+(\s+\d+)?$/', $l)
             ));
 
-            if (!empty($prodLines)) {
-                $data['product_name'] = $prodLines[0];
+            $productNames = [];
+            $sellerSkus   = [];
+            $itemQties    = [];
+
+            foreach ($prodLines as $line) {
+                // ลบ row number นำหน้า (เช่น "1 " หรือ "2 ")
+                $lineNoNum = preg_replace('/^\d+\s+/', '', $line);
+                $tokens    = preg_split('/\s+/', trim($lineNoNum));
+
+                // qty ของรายการนี้ = token สุดท้ายถ้าเป็นตัวเลขล้วน
+                $itemQty = '1';
+                if (count($tokens) > 1 && preg_match('/^\d+$/', end($tokens))) {
+                    $itemQty = array_pop($tokens);
+                }
+
+                // product_name = tokens ที่เหลือทั้งหมด
+                $productName = implode(' ', $tokens);
 
                 // Seller SKU logic:
                 //   token แรกเป็นตัวอักษรล้วน AND < 4 ตัว → เอา token ถัดไปมาต่อ (ไม่มี space)
-                //   เช่น "1 LH 50 ชิ้น..."   → "LH"(2) < 4 → "LH" + "50" = "LH50"
-                //        "1 ABCD 4 ชิ้น..."  → "ABCD"(4) ≥ 4 → stop → "ABCD"
-                //        "1 HCG10 ยาทา..."   → "HCG10" มีตัวเลข → stop → "HCG10"
-                $lineForSku = preg_replace('/^\d+\s+/', '', $prodLines[0]);
-                $tokens     = preg_split('/\s+/', trim($lineForSku));
-                $sku        = $tokens[0] ?? '';
+                //   เช่น "LH 50 ชิ้น..."   → "LH"(2) < 4 → "LH" + "50" = "LH50"
+                //        "ABCD 4 ชิ้น..."  → "ABCD"(4) ≥ 4 → stop → "ABCD"
+                //        "HCG10 ยาทา..."   → "HCG10" มีตัวเลข → stop → "HCG10"
+                //        "C10 10miu10..."  → "C10" มีตัวเลข → stop → "C10"
+                $sku = $tokens[0] ?? '';
                 if (preg_match('/^[A-Za-z]+$/', $sku) && mb_strlen($sku) < 4 && isset($tokens[1])) {
                     $sku .= $tokens[1];
                 }
                 $sku = trim($sku);
-                if ($sku !== '' && mb_strlen($sku) <= 20) {
-                    $data['seller_sku'] = $sku;
-                }
+
+                $productNames[] = $productName;
+                $sellerSkus[]   = ($sku !== '' && mb_strlen($sku) <= 20) ? $sku : '';
+                $itemQties[]    = $itemQty;
+            }
+
+            if (!empty($productNames)) {
+                $data['product_name']    = implode('|', $productNames);
+                $data['seller_sku']      = implode('|', $sellerSkus);
+                $data['item_quantities'] = implode('|', $itemQties);
             }
         }
 

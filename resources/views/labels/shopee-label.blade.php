@@ -242,15 +242,18 @@
         <span class="ph-qty">จำนวน</span>
     </div>
 
-    {{-- Red Box — แสดง SKU + Qty ภายในกรอบแดง --}}
+    {{-- Red Box — แสดง SKU + Qty แยกบรรทัดถ้ามีหลายรายการ --}}
+    @php
+        $skus  = array_map('trim', explode('|', $order->seller_sku ?? $order->product_sku ?? '-'));
+        $iQtys = array_map('trim', explode('|', $order->item_quantities ?? (string)$order->quantity));
+    @endphp
     <div class="product-hidden-box">
-        <div style="color:#fff; text-align:center; line-height:1.3;">
-            <div style="font-size:14pt; font-weight:bold; letter-spacing:1px;">
-                {{ $order->seller_sku ?? $order->product_sku ?? '-' }}
-            </div>
-            <div style="font-size:32pt; font-weight:bold; line-height:1;">
-                {{ $order->quantity }}
-            </div>
+        <div style="color:#fff; text-align:center; line-height:1.5;">
+            @foreach($skus as $si => $sku)
+                <div style="font-size:{{ count($skus) > 1 ? '11pt' : '14pt' }}; font-weight:bold; letter-spacing:1px;">
+                    {{ $sku }} &nbsp; <span style="font-size:{{ count($skus) > 1 ? '11pt' : '32pt' }}; font-weight:bold;">{{ $iQtys[$si] ?? 1 }}</span>
+                </div>
+            @endforeach
         </div>
     </div>
 

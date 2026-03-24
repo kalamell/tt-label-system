@@ -137,19 +137,17 @@ class LabelGeneratorService
         $width  = $img->getImageWidth();
         $height = $img->getImageHeight();
 
-        $sellerSku = trim($order->seller_sku ?? $order->product_sku ?? '');
-        $qty       = $order->quantity ?? 1;
-        $fontBold  = $this->findFont(true);
+        $skus    = array_values(array_filter(array_map('trim', explode('|', $order->seller_sku ?? $order->product_sku ?? ''))));
+        $iQtys   = array_map('trim', explode('|', $order->item_quantities ?? (string)($order->quantity ?? 1)));
+        if (empty($skus)) $skus = ['-'];
+        $fontBold = $this->findFont(true);
 
         // ===== กล่องขาว: เริ่มหลัง column header row (y≈52-53%) ก่อน data row (y≈54%) =====
-        // pixel analysis: header row=52%, data row=54% (อาจ wrap 2 บรรทัด ≈56-60%), footer=93%
-        // y1=54% → เริ่มทับ data row พอดี (column header "# ชื่อสินค้า..." ยังมองเห็น)
-        // y2=92% → ก่อน footer border ที่ 93%
         $y1          = (int)($height * 0.530);
         $y2          = (int)($height * 0.905);
         $boxH        = $y2 - $y1;
-        $leftMargin  = (int)($width * 0.035);   // ซ้าย
-        $rightMargin = (int)($width * 0.045);   // ขวา — เข้ามาเพิ่มให้พอดีกรอบตาราง
+        $leftMargin  = (int)($width * 0.035);
+        $rightMargin = (int)($width * 0.045);
 
         // fill ขาว
         $whiteBox = new \ImagickDraw();
@@ -158,30 +156,33 @@ class LabelGeneratorService
         $whiteBox->rectangle($leftMargin, $y1, $width - $rightMargin, $y2);
         $img->drawImage($whiteBox);
 
+        // ===== แสดงแต่ละ SKU + Qty แยกบรรทัด =====
+        $itemCount = count($skus);
+        $fontSize  = max(18, (int)($boxH * (($itemCount > 1) ? 0.10 : 0.13)));
+        $lineH     = (int)($fontSize * 1.6);
+        $textY     = $y1 + (int)($fontSize * 1.3);
+        $qtyX      = $width - $rightMargin - (int)($fontSize * 0.9);
 
-        // ===== SKU + Qty — บรรทัดเดียวกัน ด้านบนกล่อง =====
-        $fontSize = max(24, (int)($boxH * 0.13));           // 13% ของ boxH
-        $textY    = $y1 + (int)($fontSize * 1.3);           // baseline ≈ 1 line จาก top
+        foreach ($skus as $i => $sku) {
+            $currentY = $textY + ($i * $lineH);
 
-        // SKU ซ้าย
-        $skuText = mb_substr(trim($sellerSku !== '' ? $sellerSku : '-'), 0, 12);
-        $skuDraw = new \ImagickDraw();
-        $skuDraw->setFillColor(new \ImagickPixel('#000000'));
-        $skuDraw->setGravity(\Imagick::GRAVITY_NORTHWEST);
-        if ($fontBold) $skuDraw->setFont($fontBold);
-        $skuDraw->setFontSize($fontSize);
-        $skuDraw->setTextAlignment(\Imagick::ALIGN_LEFT);
-        $img->annotateImage($skuDraw, $leftMargin + (int)($width * 0.020), $textY, 0, $skuText);
+            $skuDraw = new \ImagickDraw();
+            $skuDraw->setFillColor(new \ImagickPixel('#000000'));
+            $skuDraw->setGravity(\Imagick::GRAVITY_NORTHWEST);
+            if ($fontBold) $skuDraw->setFont($fontBold);
+            $skuDraw->setFontSize($fontSize);
+            $skuDraw->setTextAlignment(\Imagick::ALIGN_LEFT);
+            $img->annotateImage($skuDraw, $leftMargin + (int)($width * 0.020), $currentY, 0, mb_substr($sku, 0, 12));
 
-        // Qty ขวา — ชิดกรอบขวา (เผื่อ ~1 ตัวอักษร padding)
-        $qtyDraw = new \ImagickDraw();
-        $qtyDraw->setFillColor(new \ImagickPixel('#000000'));
-        $qtyDraw->setGravity(\Imagick::GRAVITY_NORTHWEST);
-        if ($fontBold) $qtyDraw->setFont($fontBold);
-        $qtyDraw->setFontSize($fontSize);
-        $qtyDraw->setTextAlignment(\Imagick::ALIGN_LEFT);
-        $qtyX = $width - $rightMargin - (int)($fontSize * 0.9);  // ชิดกรอบขวา
-        $img->annotateImage($qtyDraw, $qtyX, $textY, 0, (string)$qty);
+            $itemQty = $iQtys[$i] ?? 1;
+            $qtyDraw = new \ImagickDraw();
+            $qtyDraw->setFillColor(new \ImagickPixel('#000000'));
+            $qtyDraw->setGravity(\Imagick::GRAVITY_NORTHWEST);
+            if ($fontBold) $qtyDraw->setFont($fontBold);
+            $qtyDraw->setFontSize($fontSize);
+            $qtyDraw->setTextAlignment(\Imagick::ALIGN_LEFT);
+            $img->annotateImage($qtyDraw, $qtyX, $currentY, 0, (string)$itemQty);
+        }
     }
 
     /**
