@@ -290,7 +290,7 @@ class ShopeeParserService
         // ดังนั้นแต่ละบรรทัดคือ spans ทุก column รวมกัน
         // รองรับหลายรายการ → เก็บเป็น pipe-delimited (product_name|product_name2)
         // ============================================================
-        if (preg_match('/ชื่อสินค้า[^\n]*\n(.*?)(?=Shopee\s+Order\s+No)/su', $text, $m)) {
+        if (preg_match('/#\s*ชื่อสินค้า[^\n]*\n(.*?)(?=Shopee\s+Order\s+No)/su', $text, $m)) {
             $prodSection = trim($m[1]);
 
             // กรองเอาเฉพาะบรรทัดที่มีข้อความ (ไม่ใช่แค่ตัวเลข row# + qty)
