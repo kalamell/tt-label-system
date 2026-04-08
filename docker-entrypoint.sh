@@ -39,6 +39,13 @@ php artisan key:generate --force
 APP_KEY=$(grep '^APP_KEY=' .env | cut -d'=' -f2-)
 export APP_KEY
 
+# รอ DB พร้อม (รองรับกรณี auto-restart ที่ depends_on ไม่ทำงาน)
+echo "Waiting for database ${DB_HOST:-db}:${DB_PORT:-3306}..."
+until nc -z "${DB_HOST:-db}" "${DB_PORT:-3306}" 2>/dev/null; do
+    sleep 2
+done
+echo "Database is ready"
+
 # Migrate database
 php artisan migrate --force
 

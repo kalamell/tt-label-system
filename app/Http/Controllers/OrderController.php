@@ -422,8 +422,11 @@ class OrderController extends Controller
         if ($platform = $request->get('platform')) {
             $query->where('platform', $platform);
         }
-        if ($date = $request->get('date')) {
-            $query->whereDate('shipping_date', $date);
+        $dateFrom = $request->get('date_from') ?: $request->get('date');
+        $dateTo   = $request->get('date_to')   ?: $request->get('date');
+        if ($dateFrom) {
+            $dateTo = $dateTo ?: $dateFrom;
+            $query->whereRaw('DATE(orders.created_at) BETWEEN ? AND ?', [$dateFrom, $dateTo]);
         }
 
         return $query;
