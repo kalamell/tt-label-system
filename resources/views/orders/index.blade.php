@@ -503,7 +503,7 @@
         _injectOrderIds(form);
         showOverlay('กำลังสร้าง PDF...');
 
-        _fetchDownload(form.action, form, 'batch_labels.pdf')
+        _fetchDownload(form.action + window.location.search, form, 'batch_labels.pdf')
             .then(() => overlayDone('สร้าง PDF เสร็จแล้ว!'))
             .catch(e => overlayError(e.message));
     }
@@ -513,7 +513,7 @@
         _injectOrderIds(form);
         showOverlay('กำลังสร้าง ZIP...');
 
-        _fetchDownload(form.action, form, 'labels.zip')
+        _fetchDownload(form.action + window.location.search, form, 'labels.zip')
             .then(() => overlayDone('สร้าง ZIP เสร็จแล้ว!'))
             .catch(e => overlayError(e.message));
     }
