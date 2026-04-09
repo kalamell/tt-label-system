@@ -438,12 +438,11 @@ class OrderController extends Controller
     private function _resolveOrders(Request $request)
     {
         if ($request->boolean('select_all')) {
+            // ไม่ใช้ leftJoin — เพราะทำให้ WHERE conditions ทำงานผิดปกติ (column ambiguous / ดึงทั้งหมดแทนที่จะ filter)
             return $this->_buildFilteredQuery($request)
-                ->leftJoin('products', 'orders.product_id', '=', 'products.id')
                 ->reorder()
-                ->orderBy('orders.quantity')
-                ->orderByRaw('COALESCE(products.seller_sku, products.sku)')
-                ->select('orders.*')
+                ->orderBy('quantity')
+                ->orderBy('product_id')
                 ->get();
         }
 
