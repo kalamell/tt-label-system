@@ -1307,8 +1307,8 @@ class LabelGeneratorService
         $qtyTotalDraw->setGravity(\Imagick::GRAVITY_NORTHWEST);
         if ($fontRegular) $qtyTotalDraw->setFont($fontRegular);
         $qtyTotalDraw->setFontSize($qtyTotalFontSize);
-        $qtyTotalDraw->setTextAlignment(\Imagick::ALIGN_LEFT);
-        $img->annotateImage($qtyTotalDraw, $colQtyTotalLbl, $qtyTotalY, 0, "Qty Total: {$qty}");
+        $qtyTotalDraw->setTextAlignment(\Imagick::ALIGN_RIGHT);
+        $img->annotateImage($qtyTotalDraw, $width - (int)($width * 0.025), $qtyTotalY, 0, "Qty Total: {$qty}");
 
         // ===== 4. เส้น top-border ของ footer (กรอบ) =====
         // วาดเส้นคั่น ณ $y2 — product overlay ชนพอดีกับเส้นนี้
