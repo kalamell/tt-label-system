@@ -125,7 +125,7 @@
             margin: 1mm 0;
         }
         .sku-display { font-size: 24pt; font-weight: bold; text-align: center; letter-spacing: 1px; padding: 1mm 0; color: #222; }
-        .qty-big { font-size: 52pt; font-weight: bold; text-align: center; line-height: 1; }
+        .qty-big { font-size: 46pt; font-weight: bold; text-align: center; line-height: 1; }
         .qty-unit { font-size: 16pt; font-weight: bold; }
 
         /* Footer */
@@ -201,7 +201,7 @@
     {{-- Product Section — ซ่อนชื่อ แสดง SKU + Qty ใหญ่ + Lot --}}
     <div class="product-section">
         <div class="sku-display">{{ $order->seller_sku ?? $order->product_sku ?? '-' }}</div>
-        <div style="display:flex; align-items:baseline; justify-content:center; gap:4mm;">
+        <div style="display:flex; align-items:baseline; justify-content:center; gap:2mm; padding-right:14mm;">
             <div class="qty-big">{{ $order->quantity }}</div>
             <div class="qty-unit">ชิ้น</div>
         </div>
