@@ -34,7 +34,7 @@ RUN mkdir -p public/uploads/originals public/uploads/temp public/labels public/f
     && chmod -R 777 storage bootstrap/cache public/uploads public/labels public/fonts
 
 COPY docker-entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh && chmod +x /usr/local/bin/entrypoint.sh
 
 RUN echo "memory_limit = 2048M\nmax_execution_time = 300\nupload_max_filesize = 60M\npost_max_size = 65M" \
     > /usr/local/etc/php/conf.d/custom.ini

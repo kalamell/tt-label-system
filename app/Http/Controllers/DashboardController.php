@@ -3,27 +3,33 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
-use App\Models\Product;
 use App\Services\FifoInventoryService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
     public function index(Request $request, FifoInventoryService $fifoService)
     {
-        // ── Period selector ────────────────────────────────────────
-        $period = in_array($request->get('period'), ['today', 'week', 'month', 'year'])
-            ? $request->get('period')
-            : 'today';
+        // ── Date selector ────────────────────────────────────────
+        $dateFrom = $request->get('date_from', today()->toDateString());
+        $dateTo   = $request->get('date_to', today()->toDateString());
 
-        [$dateFrom, $dateTo, $periodLabel, $periodShort] = match($period) {
-            'week'  => [now()->startOfWeek()->toDateString(),  today()->toDateString(), 'สัปดาห์นี้', 'สัปดาห์'],
-            'month' => [now()->startOfMonth()->toDateString(), today()->toDateString(), 'เดือนนี้',   'เดือน'],
-            'year'  => [now()->startOfYear()->toDateString(),  today()->toDateString(), 'ปีนี้',       'ปี'],
-            default => [today()->toDateString(),               today()->toDateString(), 'วันนี้',      'วัน'],
-        };
+        // Validate dates
+        try {
+            $dateFrom = Carbon::parse($dateFrom)->toDateString();
+            $dateTo   = Carbon::parse($dateTo)->toDateString();
+        } catch (\Exception $e) {
+            $dateFrom = today()->toDateString();
+            $dateTo   = today()->toDateString();
+        }
+
+        // สร้าง label แสดงช่วงวันที่
+        if ($dateFrom === $dateTo) {
+            $periodLabel = Carbon::parse($dateFrom)->locale('th')->isoFormat('D MMM YYYY');
+        } else {
+            $periodLabel = Carbon::parse($dateFrom)->locale('th')->isoFormat('D MMM') . ' - ' . Carbon::parse($dateTo)->locale('th')->isoFormat('D MMM YYYY');
+        }
 
         // ── Stats ตาม period ───────────────────────────────────────
         $statsQ = Order::whereRaw(
@@ -41,12 +47,14 @@ class DashboardController extends Controller
         $periodFlash   = (clone $statsQ)->where('carrier', 'FLASH')->count();
         $periodSpx     = (clone $statsQ)->where('carrier', 'SPX')->count();
 
-        // รอพิมพ์ — ยอดรวมเสมอ (ไม่ขึ้นกับ period)
+        // รอพิมพ์ — ยอดรวมเสมอ (ไม่ขึ้นกับ date range)
         $pendingOrders = Order::pending()->count();
 
-        // ── Trend Chart ────────────────────────────────────────────
-        if ($period === 'year') {
-            // Trend รายเดือน (12 เดือน)
+        // ── Trend Chart (รายวันตามช่วงวันที่เลือก) ────────────────
+        $daysDiff = Carbon::parse($dateFrom)->diffInDays(Carbon::parse($dateTo));
+
+        if ($daysDiff > 60) {
+            // ช่วงยาวกว่า 60 วัน → แสดงรายเดือน
             $trendRaw = Order::selectRaw('
                     DATE_FORMAT(created_at, "%Y-%m") AS period_key,
                     COUNT(*) AS orders,
@@ -54,7 +62,7 @@ class DashboardController extends Controller
                     SUM(carrier = "JT") AS jt_count,
                     SUM(carrier = "FLASH") AS flash_count
                 ')
-                ->whereYear('created_at', now()->year)
+                ->whereRaw('DATE(created_at) BETWEEN ? AND ?', [$dateFrom, $dateTo])
                 ->where('status', '!=', 'cancelled')
                 ->groupByRaw('DATE_FORMAT(created_at, "%Y-%m")')
                 ->orderBy('period_key')
@@ -63,21 +71,21 @@ class DashboardController extends Controller
             $thaiMonths = ['', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
                                'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
             $trend = collect();
-            for ($m = 1; $m <= 12; $m++) {
-                $key = now()->year . '-' . str_pad($m, 2, '0', STR_PAD_LEFT);
+            $cursor = Carbon::parse($dateFrom)->startOfMonth();
+            $end = Carbon::parse($dateTo)->startOfMonth();
+            while ($cursor->lte($end)) {
+                $key = $cursor->format('Y-m');
                 $trend->push([
-                    'label'       => $thaiMonths[$m],
+                    'label'       => $thaiMonths[(int)$cursor->format('m')] . ' ' . $cursor->format('y'),
                     'orders'      => $trendRaw[$key]->orders      ?? 0,
                     'boxes'       => $trendRaw[$key]->boxes        ?? 0,
                     'jt_count'    => $trendRaw[$key]->jt_count    ?? 0,
                     'flash_count' => $trendRaw[$key]->flash_count ?? 0,
                 ]);
+                $cursor->addMonth();
             }
         } else {
-            // Trend รายวัน — today/week = 7 วัน, month = 30 วัน
-            $trendDays = $period === 'month' ? 29 : 6;
-            $since     = now()->subDays($trendDays)->toDateString();
-
+            // ช่วงสั้น → แสดงรายวัน
             $trendRaw = Order::selectRaw('
                     DATE(created_at) AS period_key,
                     COUNT(*) AS orders,
@@ -85,34 +93,27 @@ class DashboardController extends Controller
                     SUM(carrier = "JT") AS jt_count,
                     SUM(carrier = "FLASH") AS flash_count
                 ')
-                ->whereRaw('DATE(created_at) >= ?', [$since])
+                ->whereRaw('DATE(created_at) BETWEEN ? AND ?', [$dateFrom, $dateTo])
                 ->where('status', '!=', 'cancelled')
                 ->groupByRaw('DATE(created_at)')
                 ->orderBy('period_key')
                 ->get()->keyBy('period_key');
 
             $trend = collect();
-            for ($i = $trendDays; $i >= 0; $i--) {
-                $d = now()->subDays($i)->toDateString();
+            $cursor = Carbon::parse($dateFrom);
+            $end = Carbon::parse($dateTo);
+            while ($cursor->lte($end)) {
+                $d = $cursor->toDateString();
                 $trend->push([
-                    'label'       => Carbon::parse($d)->format('d/m'),
+                    'label'       => $cursor->format('d/m'),
                     'orders'      => $trendRaw[$d]->orders      ?? 0,
                     'boxes'       => $trendRaw[$d]->boxes        ?? 0,
                     'jt_count'    => $trendRaw[$d]->jt_count    ?? 0,
                     'flash_count' => $trendRaw[$d]->flash_count ?? 0,
                 ]);
+                $cursor->addDay();
             }
         }
-
-        // ── สรุปสินค้าตาม period ───────────────────────────────────
-        $periodProducts = Order::selectRaw('product_id, COUNT(*) AS orders, SUM(quantity) AS boxes')
-            ->whereRaw('DATE(created_at) BETWEEN ? AND ?', [$dateFrom, $dateTo])
-            ->where('status', '!=', 'cancelled')
-            ->whereNotNull('product_id')
-            ->groupBy('product_id')
-            ->with('product')
-            ->orderByRaw('SUM(quantity) DESC')
-            ->get();
 
         // ── จังหวัด Top 6 ตาม period ──────────────────────────────
         $periodProvinces = Order::selectRaw('recipient_province, COUNT(*) AS cnt')
@@ -123,26 +124,21 @@ class DashboardController extends Controller
             ->orderBy('cnt', 'desc')
             ->limit(6)->get();
 
-        // ── สต๊อก ──────────────────────────────────────────────────
-        $products = Product::active()->get()->map(fn($p) => [
-            'product'     => $p,
-            'total_stock' => $p->total_stock,
-            'is_low_stock'=> $p->is_low_stock,
-        ]);
-
-        // ── ออเดอร์ล่าสุด ─────────────────────────────────────────
-        $recentOrders = Order::with('product')->latest()->limit(15)->get();
+        // ── ออเดอร์ล่าสุด (ตามช่วงวันที่) ──────────────────────────
+        $recentOrders = Order::with('product')
+            ->whereRaw('DATE(created_at) BETWEEN ? AND ?', [$dateFrom, $dateTo])
+            ->latest()->limit(15)->get();
 
         // ── Lot ใกล้หมดอายุ ───────────────────────────────────────
         $expiringLots = $fifoService->getExpiringLots(30);
 
         return view('dashboard.index', compact(
-            'period', 'periodLabel', 'periodShort', 'dateFrom', 'dateTo',
+            'periodLabel', 'dateFrom', 'dateTo',
             'periodOrders', 'periodBoxes', 'periodCod', 'periodPrepaid',
             'periodPrinted', 'periodJt', 'periodFlash', 'periodSpx',
             'pendingOrders',
-            'trend', 'periodProducts', 'periodProvinces',
-            'products', 'recentOrders', 'expiringLots'
+            'trend', 'periodProvinces',
+            'recentOrders', 'expiringLots'
         ));
     }
 }

@@ -39,9 +39,9 @@ php artisan key:generate --force
 APP_KEY=$(grep '^APP_KEY=' .env | cut -d'=' -f2-)
 export APP_KEY
 
-# รอ DB พร้อม (รองรับกรณี auto-restart ที่ depends_on ไม่ทำงาน)
+# รอ DB พร้อม (ใช้ PHP เช็คแทน nc เพราะ php:8.4-cli ไม่มี netcat)
 echo "Waiting for database ${DB_HOST:-db}:${DB_PORT:-3306}..."
-until nc -z "${DB_HOST:-db}" "${DB_PORT:-3306}" 2>/dev/null; do
+until php -r "try { new PDO('mysql:host=${DB_HOST:-db};port=${DB_PORT:-3306}', '${DB_USERNAME:-tiktok}', '${DB_PASSWORD:-secret123}'); } catch(Exception \$e) { exit(1); }" 2>/dev/null; do
     sleep 2
 done
 echo "Database is ready"

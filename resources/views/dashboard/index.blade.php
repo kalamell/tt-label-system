@@ -1,6 +1,6 @@
 @extends('layouts.app')
 @section('title', 'Dashboard')
-@section('page-title')Dashboard — {{ now()->locale('th')->isoFormat('D MMMM YYYY') }}@endsection
+@section('page-title')Dashboard@endsection
 
 @section('content')
 
@@ -26,29 +26,32 @@
         </div>
     @endif
 
-    {{-- Period Selector --}}
-    <div class="flex items-center gap-2 mb-5">
-        <span class="text-sm text-gray-400 mr-1">ดูข้อมูล:</span>
-        @foreach(['today' => 'วันนี้', 'week' => 'สัปดาห์นี้', 'month' => 'เดือนนี้', 'year' => 'ปีนี้'] as $key => $label)
-            <a href="{{ route('dashboard', ['period' => $key]) }}"
-               class="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors
-                      {{ $period === $key
-                          ? 'bg-blue-600 text-white shadow-sm'
-                          : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50' }}">
-                {{ $label }}
-            </a>
-        @endforeach
-    </div>
+    {{-- Date Selector --}}
+    <form method="GET" action="{{ route('dashboard') }}" class="flex flex-wrap items-center gap-3 mb-5">
+        <span class="text-sm text-gray-400">ช่วงวันที่:</span>
+        <input type="date" name="date_from" value="{{ $dateFrom }}"
+               class="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
+        <span class="text-sm text-gray-400">ถึง</span>
+        <input type="date" name="date_to" value="{{ $dateTo }}"
+               class="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
+        <button type="submit" class="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+            ดูข้อมูล
+        </button>
+        <a href="{{ route('dashboard') }}" class="px-4 py-1.5 bg-white border border-gray-200 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
+            วันนี้
+        </a>
+        <span class="text-sm text-gray-500 ml-1">{{ $periodLabel }}</span>
+    </form>
 
     {{-- Stat Cards แถว 1: ภาพรวม --}}
     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-3">
         <div class="bg-white rounded-xl border border-gray-200 p-4">
-            <p class="text-xs text-gray-400 mb-1">ออเดอร์{{ $periodShort }}</p>
+            <p class="text-xs text-gray-400 mb-1">ออเดอร์</p>
             <p class="text-2xl font-bold text-gray-900">{{ number_format($periodOrders) }}</p>
             <p class="text-xs text-gray-400 mt-0.5">รายการ</p>
         </div>
         <div class="bg-white rounded-xl border border-gray-200 p-4">
-            <p class="text-xs text-gray-400 mb-1">สินค้า{{ $periodShort }}</p>
+            <p class="text-xs text-gray-400 mb-1">สินค้า</p>
             <p class="text-2xl font-bold text-purple-600">{{ number_format($periodBoxes) }}</p>
             <p class="text-xs text-gray-400 mt-0.5">ชิ้น</p>
         </div>
@@ -58,17 +61,17 @@
             <p class="text-xs text-gray-400 mt-0.5">ออเดอร์</p>
         </div>
         <div class="bg-white rounded-xl border border-gray-200 p-4">
-            <p class="text-xs text-gray-400 mb-1">พิมพ์แล้ว{{ $periodShort }}</p>
+            <p class="text-xs text-gray-400 mb-1">พิมพ์แล้ว</p>
             <p class="text-2xl font-bold text-green-600">{{ number_format($periodPrinted) }}</p>
             <p class="text-xs text-gray-400 mt-0.5">ออเดอร์</p>
         </div>
         <div class="bg-white rounded-xl border border-gray-200 p-4">
-            <p class="text-xs text-gray-400 mb-1">COD {{ $periodShort }}</p>
+            <p class="text-xs text-gray-400 mb-1">COD</p>
             <p class="text-2xl font-bold text-rose-500">{{ number_format($periodCod) }}</p>
             <p class="text-xs text-gray-400 mt-0.5">ออเดอร์</p>
         </div>
         <div class="bg-white rounded-xl border border-gray-200 p-4">
-            <p class="text-xs text-gray-400 mb-1">โอน{{ $periodShort }}</p>
+            <p class="text-xs text-gray-400 mb-1">โอน</p>
             <p class="text-2xl font-bold text-blue-600">{{ number_format($periodPrepaid) }}</p>
             <p class="text-xs text-gray-400 mt-0.5">ออเดอร์</p>
         </div>
@@ -83,42 +86,42 @@
         <a href="{{ route('orders.index', array_merge($periodParams, ['carrier' => 'JT'])) }}"
            class="bg-blue-50 rounded-xl border border-blue-200 p-4 flex items-center gap-4 hover:bg-blue-100 transition-colors">
             <div class="flex-1 min-w-0">
-                <p class="text-xs text-blue-500 mb-1 font-medium">J&amp;T Express · {{ $periodLabel }}</p>
+                <p class="text-xs text-blue-500 mb-1 font-medium">J&amp;T Express</p>
                 <p class="text-3xl font-bold text-blue-700">{{ number_format($periodJt) }}</p>
                 <p class="text-xs text-blue-400 mt-0.5">ออเดอร์</p>
             </div>
             @if($carrierTotal > 0)
             <div class="text-right flex-shrink-0">
                 <p class="text-2xl font-bold text-blue-600">{{ round($periodJt / $carrierTotal * 100) }}<span class="text-base font-normal">%</span></p>
-                <p class="text-xs text-blue-400">ของขนส่ง{{ $periodShort }}</p>
+                <p class="text-xs text-blue-400">ของขนส่ง</p>
             </div>
             @endif
         </a>
         <a href="{{ route('orders.index', array_merge($periodParams, ['carrier' => 'FLASH'])) }}"
            class="bg-orange-50 rounded-xl border border-orange-200 p-4 flex items-center gap-4 hover:bg-orange-100 transition-colors">
             <div class="flex-1 min-w-0">
-                <p class="text-xs text-orange-500 mb-1 font-medium">Flash Express · {{ $periodLabel }}</p>
+                <p class="text-xs text-orange-500 mb-1 font-medium">Flash Express</p>
                 <p class="text-3xl font-bold text-orange-600">{{ number_format($periodFlash) }}</p>
                 <p class="text-xs text-orange-400 mt-0.5">ออเดอร์</p>
             </div>
             @if($carrierTotal > 0)
             <div class="text-right flex-shrink-0">
                 <p class="text-2xl font-bold text-orange-500">{{ round($periodFlash / $carrierTotal * 100) }}<span class="text-base font-normal">%</span></p>
-                <p class="text-xs text-orange-400">ของขนส่ง{{ $periodShort }}</p>
+                <p class="text-xs text-orange-400">ของขนส่ง</p>
             </div>
             @endif
         </a>
         <a href="{{ route('orders.index', array_merge($periodParams, ['carrier' => 'SPX'])) }}"
            class="bg-red-50 rounded-xl border border-red-200 p-4 flex items-center gap-4 hover:bg-red-100 transition-colors">
             <div class="flex-1 min-w-0">
-                <p class="text-xs text-red-500 mb-1 font-medium">SPX Express · {{ $periodLabel }}</p>
+                <p class="text-xs text-red-500 mb-1 font-medium">SPX Express</p>
                 <p class="text-3xl font-bold text-red-600">{{ number_format($periodSpx) }}</p>
                 <p class="text-xs text-red-400 mt-0.5">ออเดอร์</p>
             </div>
             @if($carrierTotal > 0)
             <div class="text-right flex-shrink-0">
                 <p class="text-2xl font-bold text-red-500">{{ round($periodSpx / $carrierTotal * 100) }}<span class="text-base font-normal">%</span></p>
-                <p class="text-xs text-red-400">ของขนส่ง{{ $periodShort }}</p>
+                <p class="text-xs text-red-400">ของขนส่ง</p>
             </div>
             @endif
         </a>
@@ -130,12 +133,7 @@
         {{-- Trend Chart --}}
         <div class="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="font-semibold text-gray-800">
-                    @if($period === 'year') แนวโน้มรายเดือน ({{ now()->year }})
-                    @elseif($period === 'month') แนวโน้ม 30 วันล่าสุด
-                    @else แนวโน้ม 7 วันล่าสุด
-                    @endif
-                </h3>
+                <h3 class="font-semibold text-gray-800">แนวโน้ม · {{ $periodLabel }}</h3>
                 <a href="{{ route('reports.daily') }}" class="text-xs text-blue-600 hover:underline">ดูรายงานเต็ม →</a>
             </div>
             <canvas id="trendChart" height="100"></canvas>
@@ -143,7 +141,7 @@
 
         {{-- Top Provinces --}}
         <div class="bg-white rounded-xl border border-gray-200 p-5">
-            <h3 class="font-semibold text-gray-800 mb-4">จังหวัด{{ $periodLabel }} (Top 6)</h3>
+            <h3 class="font-semibold text-gray-800 mb-4">จังหวัด (Top 6)</h3>
             @php $maxCnt = $periodProvinces->max('cnt') ?: 1; @endphp
             @forelse($periodProvinces as $prov)
                 <div class="mb-3">
@@ -157,86 +155,7 @@
                     </div>
                 </div>
             @empty
-                <p class="text-sm text-gray-400 text-center py-8">ยังไม่มีออเดอร์{{ $periodLabel }}</p>
-            @endforelse
-        </div>
-    </div>
-
-    {{-- Row: Product Summary + Stock --}}
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
-
-        {{-- Product Breakdown --}}
-        <div class="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5">
-            <h3 class="font-semibold text-gray-800 mb-4">สรุปสินค้า{{ $periodLabel }}</h3>
-            @if($periodProducts->isEmpty())
-                <p class="text-sm text-gray-400 text-center py-8">ยังไม่มีออเดอร์{{ $periodLabel }}</p>
-            @else
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="text-left text-xs text-gray-400 uppercase border-b">
-                                <th class="pb-2 pr-4">สินค้า</th>
-                                <th class="pb-2 pr-4 text-center">ออเดอร์</th>
-                                <th class="pb-2 pr-4 text-center">จำนวนสินค้า</th>
-                                <th class="pb-2 text-center">สต๊อกคงเหลือ</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($periodProducts as $tp)
-                                @php $prod = $tp->product; @endphp
-                                <tr class="border-b border-gray-50 hover:bg-gray-50">
-                                    <td class="py-2.5 pr-4">
-                                        <p class="font-medium text-gray-800">{{ $prod ? $prod->name : '(ไม่ทราบ)' }}</p>
-                                        @if($prod)
-                                            <p class="text-xs text-gray-400">{{ $prod->sku }}</p>
-                                        @endif
-                                    </td>
-                                    <td class="py-2.5 pr-4 text-center font-semibold text-gray-700">{{ number_format($tp->orders) }}</td>
-                                    <td class="py-2.5 pr-4 text-center font-semibold text-purple-600">{{ number_format($tp->boxes) }}</td>
-                                    <td class="py-2.5 text-center">
-                                        @if($prod)
-                                            @php $stock = $prod->total_stock; @endphp
-                                            <span class="font-semibold {{ $prod->is_low_stock ? 'text-red-600' : 'text-green-600' }}">
-                                                {{ number_format($stock) }}
-                                            </span>
-                                            @if($prod->is_low_stock)
-                                                <span class="block text-xs text-red-400">สต๊อกต่ำ!</span>
-                                            @endif
-                                        @else
-                                            <span class="text-gray-300">—</span>
-                                        @endif
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            @endif
-        </div>
-
-        {{-- Stock Status --}}
-        <div class="bg-white rounded-xl border border-gray-200 p-5">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="font-semibold text-gray-800">สต๊อกสินค้า</h3>
-                <a href="{{ route('inventory.index') }}" class="text-xs text-blue-600 hover:underline">ดูทั้งหมด →</a>
-            </div>
-            @forelse($products as $item)
-                <div class="flex items-center justify-between py-2.5 {{ !$loop->last ? 'border-b border-gray-50' : '' }}">
-                    <div class="min-w-0 flex-1 pr-3">
-                        <p class="text-sm font-medium text-gray-700 truncate">{{ $item['product']->name }}</p>
-                        <p class="text-xs text-gray-400">{{ $item['product']->sku }}</p>
-                    </div>
-                    <div class="text-right flex-shrink-0">
-                        <p class="font-bold {{ $item['is_low_stock'] ? 'text-red-600' : 'text-gray-800' }}">
-                            {{ number_format($item['total_stock']) }}
-                        </p>
-                        @if($item['is_low_stock'])
-                            <p class="text-xs text-red-400">ต่ำ!</p>
-                        @endif
-                    </div>
-                </div>
-            @empty
-                <p class="text-sm text-gray-400 text-center py-8">ยังไม่มีสินค้า</p>
+                <p class="text-sm text-gray-400 text-center py-8">ยังไม่มีออเดอร์ในช่วงนี้</p>
             @endforelse
         </div>
     </div>
