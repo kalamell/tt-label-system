@@ -94,9 +94,21 @@ class PdfParserService
                     $parsed['payment_type'] = $pyInfo['payment_type'];
                 }
 
-                if ($parsed && !empty($parsed['tracking_number'])) {
+                // ==========================================================
+                // ตัดสินว่าเป็น "ออเดอร์ใหม่" หรือ "หน้าต่อเนื่อง"
+                // เกณฑ์: มี tracking number  หรือ  มี Order ID ที่ต่างจากออเดอร์ก่อนหน้า
+                // Order ID เป็น key เฉพาะของแต่ละพัสดุ → กันหน้าที่อ่าน tracking ไม่ได้
+                // (เช่น format JTTH ที่ยังไม่รู้จัก หรือ barcode-only) ไม่ให้ถูกเหมา
+                // รวมเข้าออเดอร์ก่อนหน้าผิด ๆ
+                // ==========================================================
+                $thisOrderId = $parsed['order_id'] ?? null;
+                $lastOrderId = $lastOrderKey !== null ? ($orders[$lastOrderKey]['order_id'] ?? null) : null;
+                $isNewOrder  = !empty($parsed['tracking_number'])
+                    || (!empty($thisOrderId) && $thisOrderId !== $lastOrderId);
+
+                if ($parsed && $isNewOrder) {
                     // ======================================================
-                    // หน้าปกติ: มี tracking number → สร้าง order entry ใหม่
+                    // หน้าปกติ: ออเดอร์ใหม่ → สร้าง order entry ใหม่
                     // ======================================================
                     $parsed['page_number'] = $pageNum;
 
@@ -272,6 +284,10 @@ class PdfParserService
         // Tracking Number — J&T: 79xxxxxxxxxx (12 หลัก), Flash: THT... (alphanumeric)
         // ============================================================
         if (preg_match('/\b(79\d{10})\b/', $text, $m)) {
+            $data['tracking_number'] = $m[1];
+            if (empty($data['carrier'])) $data['carrier'] = 'JT';
+        } elseif (preg_match('/\b(JTTH\d{10,16})\b/', $text, $m)) {
+            // J&T อีกรูปแบบ: JTTH + 10-16 หลัก (เช่น JTTH200121701102)
             $data['tracking_number'] = $m[1];
             if (empty($data['carrier'])) $data['carrier'] = 'JT';
         } elseif (preg_match('/\b(THT[A-Z0-9]{8,16})\b/', $text, $m)) {

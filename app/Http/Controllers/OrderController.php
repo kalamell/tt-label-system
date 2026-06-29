@@ -145,7 +145,14 @@ class OrderController extends Controller
                 $name      = $names[$i]   ?? '';
                 $sku       = $skus[$i]    ?? '';
                 $sellerSku = $sellers[$i] ?? '';
-                $qty       = (int)($itemQtys[$i] ?? 1);
+                // qty ที่ขาด = 0 (ไม่ default เป็น 1) — ป้องกัน "ของส่งเพิ่มหลอก"
+                $qty       = (int)($itemQtys[$i] ?? 0);
+
+                // ข้ามรายการปลอม: qty<=0 = บรรทัดชื่อสินค้าที่ wrap ลงมา ไม่ใช่สินค้าจริง
+                // (สินค้าจริงทุกตัวมี Qty >= 1 เสมอ) → ไม่แสดงให้คนแพ็คเข้าใจผิด
+                if ($qty <= 0) {
+                    continue;
+                }
 
                 // ใช้ seller_sku เป็น key หลัก ถ้าไม่มีใช้ product_sku
                 $key = $sellerSku ?: $sku ?: 'UNKNOWN_' . $i;
@@ -248,34 +255,6 @@ class OrderController extends Controller
 
             // 2. บันทึกออเดอร์
             foreach ($parsedOrders as $parsed) {
-                // ตรวจสอบด้วย order_id ก่อน (primary key ในธุรกิจ)
-                $existing = Order::where('order_id', $parsed['order_id'])->first();
-
-                if ($existing) {
-                    // อัพเดต field ที่ยังว่างอยู่ (ไม่ตรวจ tracking เพื่อกัน whitespace diff)
-                    $updateData = [];
-                    if (!$existing->shipping_date && !empty($parsed['shipping_date'])) {
-                        $updateData['shipping_date'] = \Carbon\Carbon::createFromFormat('d-m-Y', $parsed['shipping_date']);
-                    }
-                    if (empty($existing->carrier) && !empty($parsed['carrier'])) {
-                        $updateData['carrier'] = $parsed['carrier'];
-                    }
-                    if (empty($existing->service_type) && !empty($parsed['service_type'])) {
-                        $updateData['service_type'] = $parsed['service_type'];
-                    }
-                    if (empty($existing->sorting_code) && !empty($parsed['sorting_code'])) {
-                        $updateData['sorting_code'] = $parsed['sorting_code'];
-                    }
-                    if (empty($existing->sorting_code_2) && !empty($parsed['sorting_code_2'])) {
-                        $updateData['sorting_code_2'] = $parsed['sorting_code_2'];
-                    }
-                    if (!empty($updateData)) {
-                        $existing->update($updateData);
-                    }
-                    $skipCount++;
-                    continue;
-                }
-
                 // หา product_id หลักสำหรับ order นี้ (ใช้รายการแรกที่ match)
                 $primaryProductId  = null;
                 $primarySellerSku  = trim(explode('|', $parsed['seller_sku'] ?? '')[0]);
@@ -298,6 +277,45 @@ class OrderController extends Controller
                 if (!$effectiveSellerSku && $primaryProductId) {
                     $linkedProduct      = Product::find($primaryProductId);
                     $effectiveSellerSku = $linkedProduct?->seller_sku ?? $linkedProduct?->sku;
+                }
+
+                // ตรวจสอบด้วย order_id ก่อน (primary key ในธุรกิจ)
+                $existing = Order::where('order_id', $parsed['order_id'])->first();
+
+                if ($existing) {
+                    // อัปโหลดทับ = ซ่อมข้อมูลที่ parse ผิดไปก่อนหน้า
+                    // รีเฟรชข้อมูลสินค้าจาก parse ใหม่ (แก้ seller_sku/product_name ที่ปนเปื้อน)
+                    // หมายเหตุ: ไม่ตัดสต๊อกซ้ำ — แก้เฉพาะข้อมูลที่แสดงผล
+                    $updateData = [
+                        'product_id'      => $primaryProductId ?: $existing->product_id,
+                        'product_name'    => $parsed['product_name'] ?: $existing->product_name,
+                        'product_sku'     => $parsed['product_sku'] ?: $existing->product_sku,
+                        'seller_sku'      => $effectiveSellerSku ?: $existing->seller_sku,
+                        'item_quantities' => $parsed['item_quantities'] ?? $existing->item_quantities,
+                        'quantity'        => $parsed['quantity'] ?: $existing->quantity,
+                    ];
+                    // tracking: เติมถ้ายังว่าง (เคสเคยอ่าน JTTH ไม่ได้)
+                    if (empty($existing->tracking_number) && !empty($parsed['tracking_number'])) {
+                        $updateData['tracking_number'] = $parsed['tracking_number'];
+                    }
+                    if (!$existing->shipping_date && !empty($parsed['shipping_date'])) {
+                        $updateData['shipping_date'] = \Carbon\Carbon::createFromFormat('d-m-Y', $parsed['shipping_date']);
+                    }
+                    if (empty($existing->carrier) && !empty($parsed['carrier'])) {
+                        $updateData['carrier'] = $parsed['carrier'];
+                    }
+                    if (empty($existing->service_type) && !empty($parsed['service_type'])) {
+                        $updateData['service_type'] = $parsed['service_type'];
+                    }
+                    if (empty($existing->sorting_code) && !empty($parsed['sorting_code'])) {
+                        $updateData['sorting_code'] = $parsed['sorting_code'];
+                    }
+                    if (empty($existing->sorting_code_2) && !empty($parsed['sorting_code_2'])) {
+                        $updateData['sorting_code_2'] = $parsed['sorting_code_2'];
+                    }
+                    $existing->update($updateData);
+                    $skipCount++;
+                    continue;
                 }
 
                 $order = Order::create([
@@ -350,7 +368,10 @@ class OrderController extends Controller
                     if (!$itemKey || !in_array($itemKey, $deductKeys)) continue;
                     if (!isset($resolvedProducts[$itemKey])) continue;
 
-                    $qty    = (int)($itemQtys[$i] ?? 1);
+                    // qty<=0 = บรรทัด wrap ปลอม ไม่ใช่สินค้าจริง → ไม่ตัดสต๊อก
+                    $qty = (int)($itemQtys[$i] ?? 0);
+                    if ($qty <= 0) continue;
+
                     $result = $this->fifoService->deductStock($resolvedProducts[$itemKey], $qty, $order->id);
                     if ($result['success'] && !$firstLot) {
                         $firstLot = $result['lot_number'] ?? null;

@@ -146,7 +146,7 @@ def extract_address_block(page) -> str:
     # กรองออก: tracking number (79xxxxxxxxxx), ตัวเลข/ตัวอักษร 1-2 ตัวลอยๆ
     addr_parts = []
     for _, _, text in addr_spans:
-        if re.match(r'^79\d{10}$', text):
+        if re.match(r'^79\d{10}$', text) or re.match(r'^JTTH\d{10,16}$', text):
             continue
         addr_parts.append(text)
 
@@ -262,6 +262,10 @@ def extract_product_info(page):
         rows[assign_to_row(y, sku_row_ys)]['qty'].append((y, x, text))
 
     # Build per-row results
+    # หมายเหตุ: ชื่อสินค้า/variation ที่ยาวจะ wrap หลายบรรทัด แต่ละบรรทัดมี y ของตัวเอง
+    # ใน SKU column → กลายเป็น "row" เกินมา (phantom row) ที่ qty=0
+    # แก้: row ที่ qty==0 = บรรทัด wrap ต่อจากสินค้าก่อนหน้า → merge เข้า row ก่อนหน้า
+    # สินค้าจริงทุกตัวมี Qty เสมอ ดังนั้นจำนวนสินค้าจริง = จำนวน row ที่ qty>0
     product_parts = []
     sku_parts     = []
     seller_parts  = []
@@ -279,6 +283,13 @@ def extract_product_info(page):
         for _, _, t in rd['qty']:
             try: row_qty = int(t); break
             except ValueError: pass
+
+        # qty==0 และมี row จริงก่อนหน้าแล้ว → เป็นบรรทัด wrap ต่อ → merge เข้าตัวก่อนหน้า
+        if row_qty == 0 and product_parts:
+            if pn:  product_parts[-1] = (product_parts[-1] + ' ' + pn).strip()
+            if sku: sku_parts[-1]     = (sku_parts[-1]     + ' ' + sku).strip()
+            if sel: seller_parts[-1]  = (seller_parts[-1]  + ' ' + sel).strip()
+            continue
 
         product_parts.append(pn)
         sku_parts.append(sku)
@@ -309,11 +320,17 @@ def extract_key_fields(page) -> dict:
         result['tracking_number'] = m.group(1)
         result['carrier'] = 'JT'
     else:
-        # Flash TikTok tracking: THT + 8-16 alphanumeric
-        m = re.search(r'\b(THT[A-Z0-9]{8,16})\b', text)
+        # J&T อีกรูปแบบ: JTTH + 10-16 หลัก (เช่น JTTH200121701102)
+        m = re.search(r'\b(JTTH\d{10,16})\b', text)
         if m:
             result['tracking_number'] = m.group(1)
-            result['carrier'] = 'FLASH'
+            result['carrier'] = 'JT'
+        else:
+            # Flash TikTok tracking: THT + 8-16 alphanumeric
+            m = re.search(r'\b(THT[A-Z0-9]{8,16})\b', text)
+            if m:
+                result['tracking_number'] = m.group(1)
+                result['carrier'] = 'FLASH'
 
     # Order ID: 15-20 digits after "Order ID:"
     m = re.search(r'Order\s*ID:\s*(\d{15,20})', text)
