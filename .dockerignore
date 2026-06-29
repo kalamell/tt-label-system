@@ -1,0 +1,24 @@
+# ===== ตัวการ build ล้ม: socket + data ของ MySQL =====
+docker/mysql
+
+# ===== ไม่ต้องเข้า image (build ใหม่ในขั้น composer install อยู่แล้ว) =====
+vendor
+node_modules
+.git
+.gitignore
+
+# ===== runtime cache/logs (กัน compiled view เก่าเช่น $periodShort ติดเข้า image) =====
+storage/logs/*.log
+storage/framework/views/*.php
+storage/framework/cache/data/*
+storage/framework/sessions/*
+
+# ===== ไฟล์อัปโหลด/ผลลัพธ์ (bind-mount ตอน runtime อยู่แล้ว) =====
+public/uploads/originals/*
+public/uploads/temp/*
+public/uploads/pages/*
+public/labels/*
+
+# ===== ไฟล์ตัวอย่าง / เบ็ดเตล็ด =====
+*.pdf
+.DS_Store
