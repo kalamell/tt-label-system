@@ -1,3 +1,4 @@
+{{-- DASHBOARD v2 — periodShort removed / deploy check marker --}}
 @extends('layouts.app')
 @section('title', 'Dashboard')
 @section('page-title')Dashboard@endsection
