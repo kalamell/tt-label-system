@@ -6,7 +6,7 @@
 # PDF files (uploads & generated labels)
 /public/uploads/
 /public/labels/
-*.pdf
+17.pdf
 
 # Storage (generated files, sessions, cache)
 /storage/app/private/
